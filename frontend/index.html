@@ -114,6 +114,7 @@
       /* ------------------------------ Modal ------------------------------ */
       function BackgroundModal({ onClose, onSubmit }) {
         const [form, setForm] = useState({ job: "", education_level: "", interests: "" });
+        const [error, setError] = useState("");
 
         const handleChange = (e) => {
           setForm({ ...form, [e.target.name]: e.target.value });
@@ -121,18 +122,29 @@
 
         const handleSubmit = async () => {
           const interestsArr = form.interests.split(/[,;]/).map((s) => s.trim()).filter(Boolean);
-          await fetch("http://localhost:8000/background", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ ...form, interests: interestsArr }),
-          });
-          onSubmit();
+          try {
+            const res = await fetch("http://localhost:8000/background", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ ...form, interests: interestsArr }),
+            });
+            if (!res.ok) {
+              const text = await res.text();
+              setError(text || "Failed to save background");
+              return;
+            }
+            setError("");
+            onSubmit();
+          } catch (e) {
+            setError("Network error");
+          }
         };
 
         return (
           <div className="modal-backdrop" onClick={onClose}>
             <div className="modal" onClick={(e) => e.stopPropagation()}>
               <h2>Your Background</h2>
+              {error && <p className="error" style={{ color: '#ff6b6b' }}>{error}</p>}
               <input name="job" placeholder="Job" onChange={handleChange} value={form.job} />
               <input
                 name="education_level"

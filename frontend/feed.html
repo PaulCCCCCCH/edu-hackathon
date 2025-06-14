@@ -63,7 +63,7 @@
         return (
           <button
             className="secondary-btn"
-            style={{ position: "absolute", top: "16px", right: "16px" }}
+            style={{ position: "absolute", top: "16px", right: "16px", zIndex: 1000 }}
             onClick={() => (window.location.href = "index.html")}
           >
             Go Back
@@ -75,6 +75,7 @@
       function VideoFeed() {
         const [videos, setVideos] = useState([]);
         const [idx, setIdx] = useState(0);
+        const [error, setError] = useState("");
 
         const fetchVideo = async () => {
           const topics = prompt("Enter a topic you want to learn (e.g., calculus)");
@@ -84,7 +85,13 @@
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ topics: [topics] }),
           });
+          if (!res.ok) {
+            const text = await res.text();
+            setError(text || "Failed to generate video");
+            return;
+          }
           const data = await res.json();
+          setError("");
           setVideos((prev) => [...prev, data]);
           setIdx((prev) => prev + 1);
         };
@@ -104,6 +111,11 @@
         return (
           <div className="video-container">
             <GoBackButton />
+            {error && (
+              <p className="error" style={{ position: "absolute", top: "60px", right: "16px", zIndex: 1000, color: '#ff6b6b', background: 'rgba(0,0,0,0.6)', padding: '4px 8px', borderRadius: '4px' }}>
+                {error}
+              </p>
+            )}
             {current ? (
               <>
                 <video src={current.video_url} autoPlay loop muted />
