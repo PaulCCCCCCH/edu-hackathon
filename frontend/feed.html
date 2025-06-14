@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>EduTok - Feed</title>
+    <style>
+      body,
+      html {
+        margin: 0;
+        padding: 0;
+        font-family: Arial, sans-serif;
+        background: #111;
+        color: #fff;
+        height: 100vh;
+        overflow: hidden;
+      }
+      button {
+        padding: 12px 24px;
+        margin: 8px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 1rem;
+      }
+      .primary-btn {
+        background: #ff4757;
+        color: white;
+      }
+      .secondary-btn {
+        background: #2ed573;
+        color: white;
+      }
+      .video-container {
+        height: 100%;
+        overflow: hidden;
+        position: relative;
+      }
+      video {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+      }
+      .video-overlay {
+        position: absolute;
+        top: 16px;
+        left: 16px;
+      }
+    </style>
+    <!-- React via CDN for quick demo -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  </head>
+  <body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+      const { useState, useEffect } = React;
+
+      /* -------------------------- Go Back Button -------------------------- */
+      function GoBackButton() {
+        return (
+          <button
+            className="secondary-btn"
+            style={{ position: "absolute", top: "16px", right: "16px" }}
+            onClick={() => (window.location.href = "index.html")}
+          >
+            Go Back
+          </button>
+        );
+      }
+
+      /* --------------------------- Video Feed --------------------------- */
+      function VideoFeed() {
+        const [videos, setVideos] = useState([]);
+        const [idx, setIdx] = useState(0);
+
+        const fetchVideo = async () => {
+          const topics = prompt("Enter a topic you want to learn (e.g., calculus)");
+          if (!topics) return;
+          const res = await fetch("http://localhost:8000/generate_video", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ topics: [topics] }),
+          });
+          const data = await res.json();
+          setVideos((prev) => [...prev, data]);
+          setIdx((prev) => prev + 1);
+        };
+
+        // wheel navigation
+        useEffect(() => {
+          const handler = (e) => {
+            if (e.deltaY > 0 && idx < videos.length - 1) setIdx(idx + 1);
+            else if (e.deltaY < 0 && idx > 0) setIdx(idx - 1);
+          };
+          window.addEventListener("wheel", handler);
+          return () => window.removeEventListener("wheel", handler);
+        }, [idx, videos.length]);
+
+        const current = videos[idx];
+
+        return (
+          <div className="video-container">
+            <GoBackButton />
+            {current ? (
+              <>
+                <video src={current.video_url} autoPlay loop muted />
+                <div className="video-overlay">
+                  <p>{current.transcript}</p>
+                  <div>
+                    <button className="secondary-btn" style={{ marginRight: "8px" }}>👍</button>
+                    <button className="primary-btn">👎</button>
+                  </div>
+                </div>
+              </>
+            ) : (
+              <div className="centered">
+                <p>No videos yet.</p>
+                <button className="primary-btn" onClick={fetchVideo}>
+                  Generate First Video
+                </button>
+              </div>
+            )}
+          </div>
+        );
+      }
+
+      ReactDOM.createRoot(document.getElementById("root")).render(<VideoFeed />);
+    </script>
+  </body>
+</html>

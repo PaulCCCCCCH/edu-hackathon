@@ -1,0 +1,74 @@
+# ----------------------------
+# Global ignores
+# ----------------------------
+.DS_Store
+Thumbs.db
+
+# ----------------------------
+# Python
+# ----------------------------
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+*.egg
+*.egg-info/
+.eggs/
+
+# Byte-compiled / optimized / DLL files
+*.pyc
+
+# Distribution / packaging
+build/
+dist/
+*.wheel
+pip-wheel-metadata/
+
+# Virtual environments
+venv/
+.env/
+.venv/
+env/
+
+# Testing & coverage
+.coverage
+htmlcov/
+.tox/
+.nox/
+pytest_cache/
+*.cover
+coverage.xml
+
+# Type checking cache
+.mypy_cache/
+
+# Logs
+*.log
+
+# ----------------------------
+# FastAPI / Uvicorn
+# ----------------------------
+*.sqlite3
+
+# ----------------------------
+# Frontend
+# ----------------------------
+frontend/node_modules/
+frontend/build/
+frontend/dist/
+.babel-cache/
+
+# ----------------------------
+# IDE / Editor settings
+# ----------------------------
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# ----------------------------
+# Secrets / config
+# ----------------------------
+.env.local
+*.env
