@@ -1,0 +1,23 @@
+{
+  "timestamp": 1749968526.014334,
+  "total_videos": 1,
+  "videos": [
+    {
+      "video_url": "http://localhost:8000/storage/videos/a637d965-342c-40db-bb53-a7ffc9bdbb7a_video.mp4",
+      "transcript": "Welcome to this educational video about Introduction to Machine Learning Algorithms! We'll explore the key concepts and practical applications in an engaging way.",
+      "title": "Educational Video: Introduction To Machine Learning Algorithms",
+      "audio_url": "http://localhost:8000/storage/audio/a637d965-342c-40db-bb53-a7ffc9bdbb7a_audio.wav",
+      "duration_seconds": 10.130958333333334,
+      "topics": [
+        "Introduction to Machine Learning Algorithms"
+      ],
+      "metadata": {
+        "video_id": "a637d965-342c-40db-bb53-a7ffc9bdbb7a",
+        "style": "explanation",
+        "difficulty_level": "Masters in Computer Science",
+        "voice_used": "Puck",
+        "generation_method": "gemini_veo_looped"
+      }
+    }
+  ]
+}
