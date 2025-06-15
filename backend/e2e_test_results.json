@@ -1,0 +1,33 @@
+{
+  "timestamp": 1750010252.0217361,
+  "total_videos": 1,
+  "videos": [
+    {
+      "video_url": "http://localhost:8000/storage/videos/5cf6313a-ca2a-4671-af09-b38fe4b85875_video.mp4",
+      "transcript": "Ever stared at a complex dataset and wished it could just\u2026 tell you its secrets? [PAUSE] That's where Machine Learning algorithms come in!\n\nThese aren't just black boxes; they are the sophisticated computational paradigms that enable systems to learn from data without explicit programming. [PAUSE] Whether it's the discriminative power of Support Vector Machines, the hierarchical feature extraction of deep neural networks, or the probabilistic inference behind Gaussian Mixture Models, each algorithm embodies a unique inductive bias. [PAUSE] We leverage supervised algorithms for predictive tasks, unsupervised for uncovering latent structures, and reinforcement learning for sequential decision-making in dynamic environments. [PAUSE] Understanding their underlying optimization landscapes and generalization bounds is crucial.\n\nThey are the bedrock upon which truly intelligent systems are built. What's one ML algorithm that blew your mind?",
+      "title": "Cracking the Code: ML Algorithms Explained",
+      "audio_url": "http://localhost:8000/storage/audio/5cf6313a-ca2a-4671-af09-b38fe4b85875_audio.wav",
+      "duration_seconds": 55.41095833333333,
+      "topics": [
+        "Machine Learning",
+        "ML Algorithms",
+        "Supervised Learning",
+        "Unsupervised Learning",
+        "Reinforcement Learning",
+        "Inductive Bias",
+        "Generalization",
+        "Optimization",
+        "Support Vector Machines",
+        "Deep Neural Networks",
+        "Gaussian Mixture Models"
+      ],
+      "metadata": {
+        "video_id": "5cf6313a-ca2a-4671-af09-b38fe4b85875",
+        "style": "explanation",
+        "difficulty_level": "Masters in Computer Science",
+        "voice_used": "Kore",
+        "generation_method": "gemini_veo_looped"
+      }
+    }
+  ]
+}

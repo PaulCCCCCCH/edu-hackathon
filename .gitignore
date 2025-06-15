@@ -46,6 +46,9 @@ coverage.xml
 # Logs
 *.log
 
+# E2E test results
+backend/e2e_test_results.json
+
 # ----------------------------
 # FastAPI / Uvicorn
 # ----------------------------

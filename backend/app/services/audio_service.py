@@ -172,10 +172,16 @@ class AudioService:
         config: AudioConfig
     ) -> AudioGenerationResult:
         """Mock audio generation for testing purposes."""
-        # Estimate realistic duration based on word count
-        # Average speaking rate: ~150 words per minute = 2.5 words per second
+        # For mock generation, use a fixed duration within the 20-40 second range
+        # This ensures consistent video lengths for testing
+        # Randomly vary between 20-40 seconds to simulate realistic variation
+        import random
+        estimated_duration = random.uniform(20.0, 35.0)  # Typically 20-35 seconds
+        
+        # Log the mock generation details
         word_count = len(text.split())
-        estimated_duration = max(word_count / 2.5, 1.0)  # At least 1 second
+        words_per_second = word_count / estimated_duration if estimated_duration > 0 else 0
+        logger.info(f"Mock audio generation: {word_count} words -> {estimated_duration:.1f}s duration ({words_per_second:.1f} words/sec)")
 
         # Create proper WAV file with realistic duration
         sample_rate = 24000

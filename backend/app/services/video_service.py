@@ -259,23 +259,26 @@ class VideoService:
             with open(temp_path, "wb") as f:
                 f.write(mock_video_content)
 
-            # Try to combine with audio (this will handle looping if needed)
+            # Try to combine with audio (this will handle looping if needed to match full audio duration)
             final_path = await self._combine_video_audio(temp_path, output_path, request.audio_file_path)
 
             # Clean up temp file
             if temp_path.exists():
                 temp_path.unlink()
 
-            # Get the actual duration from the audio file for the result
+            # Get the actual duration from the audio file for the result - this is the final video duration
             try:
                 import subprocess
                 audio_duration_cmd = ["ffprobe", "-v", "quiet", "-show_entries", "format=duration", "-of", "csv=p=0", str(request.audio_file_path)]
                 audio_result = subprocess.run(audio_duration_cmd, capture_output=True, text=True, timeout=30, check=False)
                 if audio_result.returncode == 0:
                     actual_duration = float(audio_result.stdout.strip())
+                    logger.info(f"Mock video will match audio duration: {actual_duration:.2f}s")
                 else:
                     actual_duration = request.duration_seconds
-            except Exception:
+                    logger.warning("Could not get audio duration, using requested duration")
+            except Exception as e:
+                logger.warning(f"Error getting audio duration: {e}")
                 actual_duration = request.duration_seconds
         else:
             with open(output_path, "wb") as f:
@@ -374,29 +377,26 @@ Requirements:
         return f"Create a {target_duration}-second educational video: {original_prompt}"
 
     async def _process_generated_video(self, input_path: Path, output_path: Path, original_duration: int, target_duration: float, audio_file_path: str | None = None) -> Path:
-        """Process the generated video (loop if needed)."""
+        """Process the generated video (loop if needed to match audio duration)."""
         try:
-            # If we don't need to loop, just combine with audio if available
+            # Always use _combine_video_audio if audio is available - it handles all looping
+            if audio_file_path and Path(audio_file_path).exists():
+                logger.info(f"Combining {original_duration}s video with audio to match full audio duration")
+                return await self._combine_video_audio(input_path, output_path, audio_file_path)
+            
+            # If no audio and we don't need to loop, just rename
             if not self.use_short_videos or not self.enable_video_looping or original_duration >= target_duration:
-                if audio_file_path and Path(audio_file_path).exists():
-                    return await self._combine_video_audio(input_path, output_path, audio_file_path)
                 input_path.rename(output_path)
                 logger.info(f"Video processed without looping: {output_path}")
                 return output_path
 
-            # Calculate how many times we need to loop
+            # Loop video only (without external audio)
             loops_needed = int(target_duration / original_duration) + 1
+            logger.info(f"Looping {original_duration}s video {loops_needed} times to reach ~{target_duration}s (no external audio)")
 
-            logger.info(f"Looping {original_duration}s video {loops_needed} times to reach ~{target_duration}s")
-
-            # Try to use ffmpeg for video looping if available
             try:
                 import subprocess
 
-                if audio_file_path and Path(audio_file_path).exists():
-                    # Loop video and combine with audio
-                    return await self._loop_video_with_audio(input_path, output_path, audio_file_path, loops_needed, target_duration)
-                # Just loop video without external audio
                 # Create a filter that loops the video
                 filter_complex = f"[0:v]loop=loop={loops_needed-1}:size=1:start=0[outv];[0:a]aloop=loop={loops_needed-1}:size=1:start=0[outa]"
 
@@ -437,14 +437,63 @@ Requirements:
             return output_path
 
     def _create_mock_video_content(self, request: VideoGenerationRequest) -> bytes:
-        """Create mock video file content as a minimal but valid MP4."""
-        # Create a minimal but valid MP4 file that ffmpeg can process
-        # This is a basic structure that will work with ffmpeg operations
+        """Create mock video file using ffmpeg to ensure it's properly formatted."""
+        try:
+            import subprocess
+            import tempfile
+            
+            # Always use short video duration for mock generation when looping is enabled
+            # This ensures the mock video can be properly looped to match audio duration
+            if self.use_short_videos and self.enable_video_looping:
+                mock_duration = self.short_video_duration
+                logger.info(f"Creating {mock_duration}s mock video (will be looped to match audio duration)")
+            else:
+                mock_duration = int(request.duration_seconds)
+                logger.info(f"Creating {mock_duration}s mock video (no looping)")
 
-        # Use the configured short video duration for mock generation
-        mock_duration = self.short_video_duration if self.use_short_videos else int(request.duration_seconds)
-
-        # Minimal MP4 file structure with ftyp and mdat boxes
+            # Create a proper video file using ffmpeg
+            with tempfile.NamedTemporaryFile(suffix=".mp4", delete=False) as temp_file:
+                temp_path = temp_file.name
+                
+            # Generate a simple test pattern video with ffmpeg
+            cmd = [
+                "ffmpeg", "-y",
+                "-f", "lavfi",
+                "-i", f"color=c=blue:s=1280x720:d={mock_duration}",  # Blue color video
+                "-f", "lavfi", 
+                "-i", f"sine=frequency=440:sample_rate=44100:duration={mock_duration}",  # Simple sine wave audio
+                "-c:v", "libx264",
+                "-pix_fmt", "yuv420p",  # Ensure compatibility
+                "-preset", "ultrafast",  # Fast encoding
+                "-c:a", "aac",
+                "-shortest",  # End when shortest stream ends
+                temp_path
+            ]
+            
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=30, check=False)
+            
+            if result.returncode == 0:
+                # Read the generated video file
+                with open(temp_path, "rb") as f:
+                    video_content = f.read()
+                
+                # Clean up temp file
+                try:
+                    Path(temp_path).unlink()
+                except:
+                    pass
+                    
+                logger.info(f"Created proper mock video: {len(video_content)} bytes for {mock_duration}s")
+                return video_content
+            else:
+                logger.warning(f"Failed to create mock video with ffmpeg: {result.stderr}")
+                # Fall back to simple mock
+                
+        except Exception as e:
+            logger.warning(f"Error creating mock video with ffmpeg: {e}")
+        
+        # Fallback: create a minimal MP4 structure
+        # This is a last resort if ffmpeg is not available
         ftyp_box = (
             b"\x00\x00\x00\x20"  # Box size (32 bytes)
             b"ftyp"              # Box type
@@ -452,34 +501,13 @@ Requirements:
             b"\x00\x00\x02\x00"  # Minor version
             b"isomiso2mp41"      # Compatible brands
         )
-
-        # Mock metadata as JSON for debugging
-        metadata = json.dumps({
-            "prompt": request.prompt[:100],
-            "mock_duration": mock_duration,
-            "style": request.style,
-            "generated_at": datetime.now().isoformat(),
-            "has_audio": request.audio_file_path is not None
-        }).encode()
-
-        # Create mock video data - larger size for more realistic file
-        # The size affects how ffmpeg processes the file
-        base_size = 1024 * 512  # 512KB base
-        duration_size = mock_duration * 1024 * 50  # ~50KB per second
-        video_data_size = base_size + duration_size
-
-        # mdat box (media data)
-        mdat_size = video_data_size + 8  # +8 for box header
-        mdat_box = (
-            mdat_size.to_bytes(4, "big") +  # Box size
-            b"mdat" +                       # Box type
-            b"\x00" * video_data_size       # Video data (zeros)
-        )
-
-        # Combine all parts
-        mock_content = ftyp_box + metadata + mdat_box
-
-        logger.debug(f"Created mock video content: {len(mock_content)} bytes for {mock_duration}s duration")
+        
+        # Create a more complete MP4 structure with moov atom
+        moov_data = b"moov" + b"\x00" * 100  # Minimal moov box
+        mdat_data = b"mdat" + b"\x00" * 1000  # Minimal mdat box
+        
+        mock_content = ftyp_box + moov_data + mdat_data
+        logger.debug(f"Created fallback mock video content: {len(mock_content)} bytes")
         return mock_content
 
     async def _combine_video_audio(self, video_path: Path, output_path: Path, audio_path: str) -> Path:
@@ -515,18 +543,19 @@ Requirements:
             # This ensures the final video matches the full audio length
             if audio_duration and video_duration and audio_duration > video_duration:
                 loops_needed = int(audio_duration / video_duration) + 1
-                logger.info(f"Audio ({audio_duration:.2f}s) longer than video ({video_duration:.2f}s), looping video {loops_needed} times")
+                logger.info(f"Audio ({audio_duration:.2f}s) long than video ({video_duration:.2f}s), looping video {loops_needed} times to match full audio duration")
 
                 cmd = [
                     "ffmpeg", "-y",
-                    "-stream_loop", str(loops_needed - 1),  # Loop the input
-                    "-i", str(video_path),  # Input video (looped)
-                    "-i", str(audio_path),  # Input audio
-                    "-map", "0:v:0",        # Map video
-                    "-map", "1:a:0",        # Map audio
-                    "-t", str(audio_duration), # Trim to exact audio duration
-                    "-c:v", "libx264",      # Re-encode video
-                    "-c:a", "copy",         # Copy audio as-is
+                    "-stream_loop", str(loops_needed - 1),  # Loop the input stream
+                    "-i", str(video_path),   # Input video (will be looped)
+                    "-i", str(audio_path),   # Input audio
+                    "-map", "0:v:0",         # Map video stream
+                    "-map", "1:a:0",         # Map audio stream
+                    "-t", str(audio_duration),  # Trim to exact audio duration
+                    "-c:v", "libx264",       # Re-encode video to ensure smooth looping
+                    "-c:a", "copy",          # Copy audio as-is (no re-encoding needed)
+                    "-avoid_negative_ts", "make_zero",  # Handle timestamp issues
                     str(output_path)
                 ]
             elif audio_duration and video_duration and audio_duration < video_duration:
