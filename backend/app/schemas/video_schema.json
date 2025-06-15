@@ -1,0 +1,56 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "description": "Unique identifier for the video"
+    },
+    "title": {
+      "type": "string",
+      "description": "Video title"
+    },
+    "transcript": {
+      "type": "string",
+      "description": "Full transcript of the video content"
+    },
+    "topics": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "List of educational topics covered"
+    },
+    "difficulty_level": {
+      "type": "string",
+      "enum": ["beginner", "intermediate", "advanced"],
+      "description": "Difficulty level of the content"
+    },
+    "duration_seconds": {
+      "type": "number",
+      "description": "Expected video duration in seconds"
+    },
+    "style": {
+      "type": "string",
+      "enum": ["explanation", "tutorial", "quiz", "story"],
+      "description": "Video presentation style"
+    },
+    "metadata": {
+      "type": "object",
+      "properties": {
+        "generated_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "target_audience": {
+          "type": "string"
+        },
+        "language": {
+          "type": "string",
+          "default": "en"
+        }
+      }
+    }
+  },
+  "required": ["id", "title", "transcript", "topics", "difficulty_level", "duration_seconds", "style"]
+}

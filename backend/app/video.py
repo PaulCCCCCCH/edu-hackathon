@@ -3,9 +3,8 @@
 from fastapi import APIRouter, HTTPException
 
 from .schemas import TopicsRequest, VideoResponse
-from .utils import state
-from .utils import transcript as transcript_utils
-from .utils import video as video_utils
+from .utils import state, transcript as transcript_utils, video as video_utils
+
 
 router = APIRouter()
 
