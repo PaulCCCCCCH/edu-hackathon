@@ -115,13 +115,30 @@ class ContentGeneratorService:
                     cleaned_response = cleaned_response.removesuffix(",")
                     content_data = json.loads(cleaned_response)
                 except json.JSONDecodeError:
-                    # Fallback to a default structure
+                    # Fallback to a default structure with longer transcript
                     logger.warning("Using fallback content structure")
+                    # Generate a longer transcript that takes 20-40 seconds to read
+                    # Average speaking rate: 150 words per minute = 2.5 words per second
+                    # For 30 seconds, we need about 75 words
+                    fallback_transcript = f"""Welcome to this educational video about {topic}! [PAUSE]
+                    
+Today, we're diving deep into the fascinating world of {topic}. This is one of the most important concepts you'll learn, and I'm excited to share it with you.
+
+First, let's understand what {topic} really means. At its core, {topic} is about understanding fundamental principles that shape our understanding of the subject. [PAUSE]
+
+The key things to remember are: First, always approach {topic} with curiosity. Second, practice makes perfect when it comes to mastering these concepts. And third, don't be afraid to make mistakes - they're part of the learning process.
+
+By the end of this video, you'll have a solid foundation in {topic} and be ready to explore even more advanced topics. [PAUSE]
+
+Remember to practice what you've learned today, and if you found this helpful, let me know in the comments! Keep learning and stay curious!"""
+                    
                     content_data = {
-                        "title": f"Educational Video: {topic.title()}",
-                        "transcript": f"Welcome to this educational video about {topic}! We'll explore the key concepts and practical applications in an engaging way.",
+                        "title": f"Master {topic} in 30 Seconds",
+                        "transcript": fallback_transcript,
                         "topics": [topic],
-                        "duration_seconds": 30
+                        "duration_seconds": 30,
+                        "key_points": ["Core concepts", "Practical applications", "Learning tips"],
+                        "visual_cues": ["Opening hook animation", "Key concept graphics", "Summary points"]
                     }
 
             # Debug: Log the response structure

@@ -139,7 +139,7 @@ async def main():
             topics_batch_1 = [
                 "Introduction to Machine Learning Algorithms",
                 "Web Development Best Practices",
-                "Data Science Fundamentals"
+                "Data Science Fundamentals",
             ]
             videos_batch_1 = await generate_videos(client, topics_batch_1)
 

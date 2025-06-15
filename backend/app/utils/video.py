@@ -63,15 +63,16 @@ async def generate_and_store_videos(count: int = 2, topics=None, base_url: str |
                 style=video_content.style
             )
 
-            # Step 3: Generate video (use actual audio duration, not estimated duration)
-            actual_duration = audio_result.duration_seconds if audio_result.duration_seconds else video_content.duration_seconds
-            logger.info(f"Generating video for video {video_id} with duration {actual_duration}s (audio: {audio_result.duration_seconds}s)")
+            # Step 3: Generate video using actual audio duration as target
+            # The final video MUST match the full audio duration
+            audio_duration = audio_result.duration_seconds if audio_result.duration_seconds else video_content.duration_seconds
+            logger.info(f"Generating video for {video_id} to match audio duration: {audio_duration:.2f}s")
             video_result = await video_service.generate_video_from_transcript(
                 transcript=video_content.transcript,
                 video_id=video_id,
                 audio_file_path=audio_result.audio_file_path,
                 style=video_content.style,
-                duration_seconds=actual_duration
+                duration_seconds=audio_duration  # This ensures the final video will be the same length as the audio
             )
 
             # Create the response with proper URLs
@@ -83,7 +84,7 @@ async def generate_and_store_videos(count: int = 2, topics=None, base_url: str |
                 transcript=video_content.transcript,
                 title=video_content.title,
                 audio_url=audio_url,
-                duration_seconds=actual_duration,
+                duration_seconds=audio_duration,  # Use the audio duration as the final video duration
                 topics=video_content.topics,
                 metadata={
                     "video_id": video_id,
