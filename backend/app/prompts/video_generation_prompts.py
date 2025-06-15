@@ -1,9 +1,9 @@
-"""Prompts for video content generation using GPT-4o."""
+"""Prompts for video content generation using Gemini 2.0 Flash."""
 
 TRANSCRIPT_GENERATION_PROMPT = """
 You are an expert educational content creator specializing in creating engaging, TikTok-style educational videos.
 
-Create a compelling video transcript for a short educational video (30-60 seconds) based on the following requirements:
+Create a compelling video transcript for a short educational video (20-40 seconds) based on the following requirements:
 
 Topic: {topic}
 Difficulty Level: {difficulty_level}
@@ -15,7 +15,7 @@ Guidelines:
 2. Deliver the core educational content in a clear, engaging manner
 3. Use simple language appropriate for the difficulty level
 4. Include a memorable conclusion or call-to-action
-5. Keep the total speaking time under 60 seconds
+5. Keep the total speaking time between 20-40 seconds
 6. Use a conversational, enthusiastic tone
 7. Include pauses for visual emphasis where appropriate (marked with [PAUSE])
 
