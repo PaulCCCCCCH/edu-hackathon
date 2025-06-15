@@ -174,7 +174,11 @@ async def get_video_history(request: Request):
                 # Look for corresponding audio file
                 audio_url = None
                 for audio_ext in ['.wav', '.mp3']:
-                    audio_file = audio_dir / f"{video_file.stem}{audio_ext}"
+                    # audio_stem is video file's stem, but with "_video" replaced to "_audio"
+                    audio_stem = str.replace(video_file.stem, "_video", "_audio")
+
+                    audio_file = audio_dir / f"{audio_stem}{audio_ext}"
+
                     if audio_file.exists():
                         audio_url = f"{base_url}/storage/audio/{audio_file.name}"
                         break
