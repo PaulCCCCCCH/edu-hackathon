@@ -78,9 +78,23 @@
         const [error, setError] = useState("");
 
         const fetchVideo = async () => {
+          // Try fetching by index first
+          const idxToFetch = idx;
+          let res = await fetch(`http://localhost:8000/fetch_video/${idxToFetch}`);
+          if (res.ok) {
+            const data = await res.json();
+            setVideos((prev) => {
+              const copy = [...prev];
+              copy[idxToFetch] = data; // fill gap if any
+              return copy;
+            });
+            return;
+          }
+          // Otherwise ask backend to generate two more videos
+
           const topics = prompt("Enter a topic you want to learn (e.g., calculus)");
           if (!topics) return;
-          const res = await fetch("http://localhost:8000/generate_video", {
+          res = await fetch("http://localhost:8000/generate_videos", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ topics: [topics] }),
@@ -92,8 +106,8 @@
           }
           const data = await res.json();
           setError("");
-          setVideos((prev) => [...prev, data]);
-          setIdx((prev) => prev + 1);
+          setVideos((prev) => [...prev, ...data]);
+          // keep idx unchanged - user wheel may move
         };
 
         // wheel navigation

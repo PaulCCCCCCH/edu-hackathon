@@ -68,6 +68,9 @@ frontend/dist/
 *.swo
 
 # ----------------------------
+# Generated videos
+backend/static/
+
 # Secrets / config
 # ----------------------------
 .env.local
