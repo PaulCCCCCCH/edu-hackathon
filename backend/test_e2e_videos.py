@@ -22,10 +22,12 @@ async def submit_user_background(client: httpx.AsyncClient):
     """Submit user background information."""
     print_status("📝 Submitting user background...")
 
+    # Format structured data into a description string as expected by the API
+    interests_str = ", ".join(["Machine Learning", "Web Development", "Data Science", "AI Ethics", "Cloud Computing"])
+    description = f"I am a Software Engineer with a Masters in Computer Science. My interests include: {interests_str}."
+    
     background_data = {
-        "job": "Software Engineer",
-        "education_level": "Masters in Computer Science",
-        "interests": ["Machine Learning", "Web Development", "Data Science", "AI Ethics", "Cloud Computing"],
+        "description": description
     }
 
     response = await client.post(f"{BASE_URL}/background", json=background_data)

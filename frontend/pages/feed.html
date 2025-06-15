@@ -31,6 +31,7 @@
             height: 100%;
             object-fit: cover;
             background: #000;
+            transition: opacity 0.2s ease-in-out;
         }
         
         .video-overlay {
@@ -255,31 +256,35 @@
                 Scroll to navigate
             </div>
 
-            <!-- Current Video -->
-            <div v-if="currentVideo">
+            <!-- Video Players (preloaded) -->
+            <div v-for="(video, index) in videos" :key="video.video_url" 
+                 :style="{ display: index === currentIndex ? 'block' : 'none' }">
                 <video 
-                    ref="videoPlayer"
+                    :ref="`videoPlayer-${index}`"
                     class="video-player"
-                    :src="currentVideo.video_url"
+                    :src="video.video_url"
                     :muted="true"
-                    autoplay
+                    :autoplay="index === currentIndex"
                     loop
                     playsinline
-                    @loadeddata="onVideoLoaded"
+                    preload="auto"
+                    @loadeddata="onVideoLoaded(index)"
                     @error="onVideoError"
                 ></video>
 
                 <!-- Separate Audio Element -->
                 <audio 
-                    ref="audioPlayer"
-                    :src="currentVideo.audio_url"
+                    :ref="`audioPlayer-${index}`"
+                    :src="video.audio_url"
                     :muted="muted"
-                    autoplay
+                    :autoplay="index === currentIndex && !muted"
                     loop
-                    @loadeddata="onAudioLoaded"
+                    preload="auto"
+                    @loadeddata="onAudioLoaded(index)"
                     @error="onAudioError"
                     style="display: none;"
                 ></audio>
+            </div>
 
                 <!-- Video Info Overlay -->
                 <div class="video-overlay">
@@ -344,7 +349,9 @@
                     generating: false,
                     error: '',
                     muted: true,
-                    backgroundSubmitted: false
+                    backgroundSubmitted: false,
+                    loadedVideos: new Set(), // Track which videos are loaded
+                    preloadDistance: 2 // Preload videos within this distance
                 }
             },
             computed: {
@@ -360,6 +367,7 @@
                 currentIndex() {
                     this.$nextTick(() => {
                         this.playCurrentVideo();
+                        this.preloadNearbyVideos();
                     });
                 }
             },
@@ -419,6 +427,11 @@
                             throw new Error('No videos were generated');
                         }
 
+                        // Start preloading nearby videos
+                        this.$nextTick(() => {
+                            this.preloadNearbyVideos();
+                        });
+
                     } catch (err) {
                         console.error('Error generating videos:', err);
                         this.error = err.message || 'Failed to load videos';
@@ -462,15 +475,29 @@
                 },
 
                 playCurrentVideo() {
-                    if (this.$refs.videoPlayer) {
-                        this.$refs.videoPlayer.currentTime = 0;
-                        this.$refs.videoPlayer.play().catch(console.warn);
+                    // Pause all other videos first
+                    this.videos.forEach((video, index) => {
+                        if (index !== this.currentIndex) {
+                            const videoEl = this.$refs[`videoPlayer-${index}`]?.[0];
+                            const audioEl = this.$refs[`audioPlayer-${index}`]?.[0];
+                            if (videoEl) videoEl.pause();
+                            if (audioEl) audioEl.pause();
+                        }
+                    });
+
+                    // Play current video and audio
+                    const currentVideoEl = this.$refs[`videoPlayer-${this.currentIndex}`]?.[0];
+                    const currentAudioEl = this.$refs[`audioPlayer-${this.currentIndex}`]?.[0];
+                    
+                    if (currentVideoEl) {
+                        currentVideoEl.currentTime = 0;
+                        currentVideoEl.play().catch(console.warn);
                     }
                     
-                    if (this.$refs.audioPlayer) {
-                        this.$refs.audioPlayer.currentTime = 0;
+                    if (currentAudioEl) {
+                        currentAudioEl.currentTime = 0;
                         if (!this.muted) {
-                            this.$refs.audioPlayer.play().catch(console.warn);
+                            currentAudioEl.play().catch(console.warn);
                         }
                     }
                 },
@@ -513,26 +540,19 @@
                     window.addEventListener('keydown', handleKeydown);
                 },
 
-                navigateToVideo(index) {
-                    if (index >= 0 && index < this.videos.length) {
-                        this.currentIndex = index;
-                        
-                        if (index >= this.videos.length - 2 && !this.generating) {
-                            this.generateVideos();
-                        }
-                    }
-                },
-
                 toggleSound() {
                     this.muted = !this.muted;
                     
-                    if (this.$refs.audioPlayer) {
+                    const currentAudioEl = this.$refs[`audioPlayer-${this.currentIndex}`]?.[0];
+                    const currentVideoEl = this.$refs[`videoPlayer-${this.currentIndex}`]?.[0];
+                    
+                    if (currentAudioEl) {
                         if (this.muted) {
-                            this.$refs.audioPlayer.pause();
+                            currentAudioEl.pause();
                         } else {
                             // Sync audio with video time
-                            this.$refs.audioPlayer.currentTime = this.$refs.videoPlayer?.currentTime || 0;
-                            this.$refs.audioPlayer.play().catch(console.warn);
+                            currentAudioEl.currentTime = currentVideoEl?.currentTime || 0;
+                            currentAudioEl.play().catch(console.warn);
                         }
                     }
                 },
@@ -554,8 +574,8 @@
                     this.initializeApp();
                 },
 
-                onVideoLoaded() {
-                    console.log('Video loaded');
+                onVideoLoaded(index) {
+                    console.log(`Video ${index} loaded`);
                 },
 
                 onVideoError(e) {
@@ -563,12 +583,47 @@
                     this.error = 'Failed to load video';
                 },
 
-                onAudioLoaded() {
-                    console.log('Audio loaded');
+                onAudioLoaded(index) {
+                    console.log(`Audio ${index} loaded`);
                 },
 
                 onAudioError(e) {
                     console.error('Audio error:', e);
+                },
+
+                preloadNearbyVideos() {
+                    // Preload videos within the preload distance
+                    const start = Math.max(0, this.currentIndex - this.preloadDistance);
+                    const end = Math.min(this.videos.length - 1, this.currentIndex + this.preloadDistance);
+                    
+                    for (let i = start; i <= end; i++) {
+                        if (!this.loadedVideos.has(i)) {
+                            const videoEl = this.$refs[`videoPlayer-${i}`]?.[0];
+                            const audioEl = this.$refs[`audioPlayer-${i}`]?.[0];
+                            
+                            if (videoEl && videoEl.readyState < 4) {
+                                videoEl.load();
+                            }
+                            if (audioEl && audioEl.readyState < 4) {
+                                audioEl.load();
+                            }
+                            
+                            this.loadedVideos.add(i);
+                        }
+                    }
+                },
+
+                // Add transition effect for smoother navigation
+                navigateToVideo(index) {
+                    if (index >= 0 && index < this.videos.length && index !== this.currentIndex) {
+                        // Smooth transition
+                        this.currentIndex = index;
+                        
+                        // Generate more videos if approaching the end
+                        if (index >= this.videos.length - 2 && !this.generating) {
+                            this.generateVideos();
+                        }
+                    }
                 }
             }
         }).mount('#app');

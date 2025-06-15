@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Audio Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .video-container {
+            margin: 20px 0;
+            border: 1px solid #ccc;
+            padding: 10px;
+        }
+        video {
+            width: 100%;
+            max-width: 500px;
+            display: block;
+            margin: 10px 0;
+        }
+        button {
+            margin: 5px;
+            padding: 10px 15px;
+            font-size: 14px;
+            cursor: pointer;
+        }
+        .controls {
+            margin: 10px 0;
+        }
+        .info {
+            background: #f5f5f5;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Video Audio Test</h1>
+    
+    <div id="app">
+        <div class="info">
+            <h3>Audio Test Results:</h3>
+            <p><strong>Video Source:</strong> <span id="video-src">Loading...</span></p>
+            <p><strong>Video Muted:</strong> <span id="video-muted">-</span></p>
+            <p><strong>Video Volume:</strong> <span id="video-volume">-</span></p>
+            <p><strong>Has Audio Track:</strong> <span id="has-audio">-</span></p>
+            <p><strong>Audio Track Count:</strong> <span id="audio-tracks">-</span></p>
+        </div>
+
+        <div class="video-container" v-if="currentVideo">
+            <h3>Current Video: {{ currentVideo.topic || 'Test Video' }}</h3>
+            <video 
+                ref="videoPlayer"
+                controls
+                preload="metadata"
+                @loadedmetadata="onVideoLoaded"
+                @error="onVideoError"
+            >
+                <source :src="currentVideo.video_url" type="video/mp4">
+                Your browser does not support the video tag.
+            </video>
+            
+            <div class="controls">
+                <button @click="toggleMute" :style="{ backgroundColor: muted ? '#dc3545' : '#28a745' }">
+                    {{ muted ? 'Unmute' : 'Mute' }}
+                </button>
+                <button @click="setVolume(0.5)">Volume 50%</button>
+                <button @click="setVolume(1.0)">Volume 100%</button>
+                <button @click="playVideo">Play</button>
+                <button @click="pauseVideo">Pause</button>
+            </div>
+        </div>
+
+        <div v-if="loading">Loading videos...</div>
+        <div v-if="error" style="color: red;">Error: {{ error }}</div>
+    </div>
+
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script>
+        const { createApp } = Vue;
+
+        createApp({
+            data() {
+                return {
+                    currentVideo: null,
+                    loading: true,
+                    error: '',
+                    muted: true,
+                    videos: []
+                }
+            },
+            mounted() {
+                this.loadTestVideo();
+            },
+            methods: {
+                async loadTestVideo() {
+                    try {
+                        this.loading = true;
+                        this.error = '';
+                        
+                        // Try to load from history first
+                        const response = await fetch('http://localhost:8000/history');
+                        
+                        if (response.ok) {
+                            const data = await response.json();
+                            this.videos = Array.isArray(data) ? data : [data];
+                            
+                            if (this.videos.length > 0) {
+                                this.currentVideo = this.videos[0];
+                                document.getElementById('video-src').textContent = this.currentVideo.video_url;
+                            }
+                        } else {
+                            throw new Error('No videos found in history');
+                        }
+                    } catch (err) {
+                        console.error('Error loading test video:', err);
+                        this.error = err.message;
+                    } finally {
+                        this.loading = false;
+                    }
+                },
+
+                onVideoLoaded() {
+                    const video = this.$refs.videoPlayer;
+                    if (video) {
+                        this.muted = video.muted;
+                        this.updateVideoInfo();
+                    }
+                },
+
+                updateVideoInfo() {
+                    const video = this.$refs.videoPlayer;
+                    if (!video) return;
+
+                    document.getElementById('video-muted').textContent = video.muted;
+                    document.getElementById('video-volume').textContent = video.volume.toFixed(2);
+                    
+                    // Check for audio tracks
+                    const hasAudio = video.audioTracks ? video.audioTracks.length > 0 : 'Unknown';
+                    const audioTrackCount = video.audioTracks ? video.audioTracks.length : 'Unknown';
+                    
+                    document.getElementById('has-audio').textContent = hasAudio;
+                    document.getElementById('audio-tracks').textContent = audioTrackCount;
+
+                    // Additional check for audio
+                    if (video.readyState >= 1) {
+                        const hasAudioAlternative = video.webkitAudioDecodedByteCount !== undefined ? 
+                            video.webkitAudioDecodedByteCount > 0 : 'Cannot detect';
+                        console.log('Alternative audio detection:', hasAudioAlternative);
+                        console.log('Video duration:', video.duration);
+                        console.log('Video readyState:', video.readyState);
+                    }
+                },
+
+                toggleMute() {
+                    const video = this.$refs.videoPlayer;
+                    if (video) {
+                        video.muted = !video.muted;
+                        this.muted = video.muted;
+                        this.updateVideoInfo();
+                        console.log('Toggled mute:', video.muted);
+                    }
+                },
+
+                setVolume(vol) {
+                    const video = this.$refs.videoPlayer;
+                    if (video) {
+                        video.volume = vol;
+                        video.muted = false;
+                        this.muted = false;
+                        this.updateVideoInfo();
+                        console.log('Set volume to:', vol);
+                    }
+                },
+
+                playVideo() {
+                    const video = this.$refs.videoPlayer;
+                    if (video) {
+                        video.play().catch(e => {
+                            console.error('Play failed:', e);
+                            this.error = 'Play failed: ' + e.message;
+                        });
+                    }
+                },
+
+                pauseVideo() {
+                    const video = this.$refs.videoPlayer;
+                    if (video) {
+                        video.pause();
+                    }
+                },
+
+                onVideoError(e) {
+                    console.error('Video error:', e);
+                    this.error = 'Video error: ' + e.message;
+                }
+            }
+        }).mount('#app');
+    </script>
+</body>
+</html>

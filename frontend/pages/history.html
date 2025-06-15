@@ -18,21 +18,21 @@
             color: #fff;
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
         }
-        
+
         .video-container {
             position: relative;
             width: 100vw;
             height: 100vh;
             background: #000;
         }
-        
+
         .video-player {
             width: 100%;
             height: 100%;
             object-fit: cover;
             background: #000;
         }
-        
+
         .video-overlay {
             position: absolute;
             bottom: 20px;
@@ -45,20 +45,20 @@
             max-width: 350px;
             z-index: 10;
         }
-        
+
         .video-info h5 {
             color: #fff;
             margin-bottom: 10px;
             font-weight: 600;
         }
-        
+
         .video-info p {
             color: rgba(255, 255, 255, 0.9);
             font-size: 14px;
             line-height: 1.4;
             margin-bottom: 15px;
         }
-        
+
         .video-controls {
             position: absolute;
             top: 20px;
@@ -68,7 +68,7 @@
             gap: 10px;
             z-index: 10;
         }
-        
+
         .control-btn {
             width: 50px;
             height: 50px;
@@ -82,31 +82,31 @@
             transition: all 0.2s ease;
             backdrop-filter: blur(10px);
         }
-        
+
         .control-btn:hover {
             transform: scale(1.1);
         }
-        
+
         .btn-back {
             background: rgba(108, 117, 125, 0.8);
             color: #fff;
         }
-        
+
         .btn-sound {
             background: rgba(220, 53, 69, 0.8);
             color: #fff;
         }
-        
+
         .btn-sound.unmuted {
             background: rgba(25, 135, 84, 0.8);
         }
-        
+
         .action-buttons {
             display: flex;
             gap: 10px;
             flex-wrap: wrap;
         }
-        
+
         .nav-hint {
             position: absolute;
             bottom: 50%;
@@ -118,12 +118,12 @@
             animation: fadeInOut 3s infinite;
             z-index: 5;
         }
-        
+
         @keyframes fadeInOut {
             0%, 100% { opacity: 0.3; }
             50% { opacity: 0.8; }
         }
-        
+
         .loading-screen {
             position: absolute;
             top: 0;
@@ -137,17 +137,17 @@
             justify-content: center;
             z-index: 1000;
         }
-        
+
         .loading-content h2 {
             margin-bottom: 20px;
             font-weight: 700;
         }
-        
+
         .loading-content p {
             margin-bottom: 30px;
             opacity: 0.9;
         }
-        
+
         .video-counter {
             position: absolute;
             top: 20px;
@@ -159,7 +159,7 @@
             backdrop-filter: blur(10px);
             z-index: 10;
         }
-        
+
         .history-badge {
             position: absolute;
             top: 70px;
@@ -172,7 +172,7 @@
             font-weight: 600;
             z-index: 10;
         }
-        
+
         .error-message {
             position: absolute;
             top: 80px;
@@ -184,11 +184,11 @@
             border-radius: 10px;
             z-index: 100;
         }
-        
+
         .empty-state {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         }
-        
+
         @media (max-width: 768px) {
             .video-overlay {
                 left: 15px;
@@ -197,12 +197,12 @@
                 padding: 15px;
                 max-width: none;
             }
-            
+
             .video-controls {
                 top: 15px;
                 right: 15px;
             }
-            
+
             .control-btn {
                 width: 45px;
                 height: 45px;
@@ -248,10 +248,10 @@
                 <button class="control-btn btn-back" @click="goBack" title="Go Back">
                     <i class="bi bi-arrow-left"></i>
                 </button>
-                <button 
-                    class="control-btn btn-sound" 
+                <button
+                    class="control-btn btn-sound"
                     :class="{ unmuted: !muted }"
-                    @click="toggleSound" 
+                    @click="toggleSound"
                     :title="muted ? 'Unmute' : 'Mute'"
                 >
                     <i :class="muted ? 'bi bi-volume-mute' : 'bi bi-volume-up'"></i>
@@ -265,7 +265,7 @@
 
             <!-- Current Video -->
             <div v-if="currentVideo">
-                <video 
+                <video
                     ref="videoPlayer"
                     class="video-player"
                     :src="currentVideo.video_url"
@@ -278,11 +278,13 @@
                 ></video>
 
                 <!-- Separate Audio Element -->
-                <audio 
+                <audio
                     ref="audioPlayer"
                     :src="currentVideo.audio_url"
                     :muted="muted"
+                    :autoplay="!muted"
                     loop
+                    preload="auto"
                     @loadeddata="onAudioLoaded"
                     @error="onAudioError"
                     style="display: none;"
@@ -370,7 +372,7 @@
                     try {
                         this.loading = true;
                         this.error = '';
-                        
+
                         const response = await fetch('http://localhost:8000/history');
 
                         if (!response.ok) {
@@ -380,7 +382,7 @@
 
                         const data = await response.json();
                         this.videos = Array.isArray(data) ? data : [data];
-                        
+
                         // Sort by creation date (newest first)
                         this.videos.sort((a, b) => {
                             const dateA = new Date(a.created_at || 0);
@@ -401,7 +403,7 @@
                         this.$refs.videoPlayer.currentTime = 0;
                         this.$refs.videoPlayer.play().catch(console.warn);
                     }
-                    
+
                     if (this.$refs.audioPlayer && !this.muted) {
                         this.$refs.audioPlayer.currentTime = 0;
                         this.$refs.audioPlayer.play().catch(console.warn);
@@ -413,18 +415,18 @@
 
                     const handleWheel = (e) => {
                         if (isScrolling || this.videos.length <= 1) return;
-                        
+
                         e.preventDefault();
                         isScrolling = true;
-                        
+
                         const delta = Math.sign(e.deltaY);
-                        
+
                         if (delta > 0 && this.currentIndex < this.videos.length - 1) {
                             this.navigateToVideo(this.currentIndex + 1);
                         } else if (delta < 0 && this.currentIndex > 0) {
                             this.navigateToVideo(this.currentIndex - 1);
                         }
-                        
+
                         setTimeout(() => {
                             isScrolling = false;
                         }, 300);
@@ -454,10 +456,10 @@
 
                 toggleSound() {
                     this.muted = !this.muted;
-                    
+
                     if (this.$refs.audioPlayer) {
                         this.$refs.audioPlayer.muted = this.muted;
-                        
+
                         if (this.muted) {
                             this.$refs.audioPlayer.pause();
                         } else {
@@ -490,7 +492,7 @@
 
                 formatDate(dateString) {
                     if (!dateString) return 'Unknown date';
-                    
+
                     try {
                         const date = new Date(dateString);
                         return date.toLocaleDateString('en-US', {
