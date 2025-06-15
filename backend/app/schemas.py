@@ -6,9 +6,7 @@ from pydantic import BaseModel
 
 
 class UserBackground(BaseModel):
-    job: str
-    education_level: str
-    interests: list[str]
+    description: str
 
 
 class UserPreferences(BaseModel):

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>EduTok - Feed</title>
+    <title>EduTok - Watch History</title>
     <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <!-- Bootstrap Icons -->
@@ -160,6 +160,19 @@
             z-index: 10;
         }
         
+        .history-badge {
+            position: absolute;
+            top: 70px;
+            left: 20px;
+            background: rgba(102, 126, 234, 0.9);
+            color: #fff;
+            padding: 6px 12px;
+            border-radius: 15px;
+            font-size: 11px;
+            font-weight: 600;
+            z-index: 10;
+        }
+        
         .error-message {
             position: absolute;
             top: 80px;
@@ -170,6 +183,10 @@
             padding: 15px;
             border-radius: 10px;
             z-index: 100;
+        }
+        
+        .empty-state {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         }
         
         @media (max-width: 768px) {
@@ -200,24 +217,10 @@
         <div v-if="loading" class="loading-screen">
             <div class="loading-content text-center">
                 <div class="spinner-border text-light mb-4" style="width: 3rem; height: 3rem;"></div>
-                <h2>🤖 Creating Your Learning Experience</h2>
-                <p>Our AI is generating personalized educational content</p>
-                <div class="row text-center">
-                    <div class="col-6 col-md-3 mb-3">
-                        <div class="badge bg-primary p-2">🧠 AI Analysis</div>
-                    </div>
-                    <div class="col-6 col-md-3 mb-3">
-                        <div class="badge bg-success p-2">📝 Script Writing</div>
-                    </div>
-                    <div class="col-6 col-md-3 mb-3">
-                        <div class="badge bg-warning p-2">🎙️ Voice Generation</div>
-                    </div>
-                    <div class="col-6 col-md-3 mb-3">
-                        <div class="badge bg-info p-2">🎬 Video Creation</div>
-                    </div>
-                </div>
+                <h2>📚 Loading Your Video History</h2>
+                <p>Gathering all your previously generated educational videos</p>
                 <div class="alert alert-info mt-4" style="max-width: 400px;">
-                    <small>⏱️ Usually takes 30-60 seconds<br>Perfect time for a quick break! ☕</small>
+                    <small><i class="bi bi-info-circle me-2"></i>This shows videos from your storage/videos folder</small>
                 </div>
             </div>
         </div>
@@ -228,6 +231,11 @@
             <div v-if="error" class="error-message">
                 <i class="bi bi-exclamation-triangle"></i> {{ error }}
                 <button class="btn btn-sm btn-outline-light ms-2" @click="retry">Retry</button>
+            </div>
+
+            <!-- History Badge -->
+            <div class="history-badge">
+                <i class="bi bi-clock-history me-1"></i>History
             </div>
 
             <!-- Video Counter -->
@@ -251,7 +259,7 @@
             </div>
 
             <!-- Navigation Hint -->
-            <div class="nav-hint">
+            <div class="nav-hint" v-if="videos.length > 1">
                 Scroll to navigate
             </div>
 
@@ -274,7 +282,6 @@
                     ref="audioPlayer"
                     :src="currentVideo.audio_url"
                     :muted="muted"
-                    autoplay
                     loop
                     @loadeddata="onAudioLoaded"
                     @error="onAudioError"
@@ -284,8 +291,12 @@
                 <!-- Video Info Overlay -->
                 <div class="video-overlay">
                     <div class="video-info">
-                        <h5>{{ currentVideo.topic || `Educational Video ${currentIndex + 1}` }}</h5>
-                        <p>{{ currentVideo.transcript }}</p>
+                        <h5>{{ currentVideo.topic || currentVideo.filename || `Video ${currentIndex + 1}` }}</h5>
+                        <p>{{ currentVideo.transcript || 'Previously generated educational content from your history.' }}</p>
+                        <small class="text-muted">
+                            <i class="bi bi-calendar me-1"></i>
+                            {{ formatDate(currentVideo.created_at) }}
+                        </small>
                     </div>
                     <div class="action-buttons">
                         <button class="btn btn-success btn-sm" @click="likeVideo">
@@ -301,27 +312,20 @@
                 </div>
             </div>
 
-            <!-- No Videos State -->
-            <div v-else-if="!loading && videos.length === 0" class="d-flex align-items-center justify-content-center h-100">
+            <!-- Empty History State -->
+            <div v-else-if="!loading && videos.length === 0" class="d-flex align-items-center justify-content-center h-100 empty-state">
                 <div class="text-center">
-                    <h3>No videos available</h3>
-                    <p>Let's generate some content for you</p>
-                    <button class="btn btn-primary" @click="generateVideos">
-                        <i class="bi bi-plus-circle"></i> Generate Videos
-                    </button>
-                </div>
-            </div>
-        </div>
-
-        <!-- Generation Status Toast -->
-        <div v-if="generating" class="toast-container position-fixed bottom-0 end-0 p-3">
-            <div class="toast show" role="alert">
-                <div class="toast-header bg-primary text-white">
-                    <div class="spinner-border spinner-border-sm me-2"></div>
-                    <strong class="me-auto">Generating Content</strong>
-                </div>
-                <div class="toast-body">
-                    Creating more educational videos...
+                    <i class="bi bi-collection-play display-1 mb-4 opacity-50"></i>
+                    <h3>No video history yet</h3>
+                    <p class="mb-4">You haven't generated any videos yet.<br>Start creating some educational content!</p>
+                    <div class="d-flex gap-3 justify-content-center">
+                        <button class="btn btn-primary" @click="goToFeed">
+                            <i class="bi bi-plus-circle me-2"></i>Generate Videos
+                        </button>
+                        <button class="btn btn-outline-light" @click="goBack">
+                            <i class="bi bi-arrow-left me-2"></i>Go Back
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -341,10 +345,8 @@
                     videos: [],
                     currentIndex: 0,
                     loading: true,
-                    generating: false,
                     error: '',
-                    muted: true,
-                    backgroundSubmitted: false
+                    muted: true
                 }
             },
             computed: {
@@ -353,7 +355,7 @@
                 }
             },
             mounted() {
-                this.initializeApp();
+                this.loadHistoryVideos();
                 this.setupScrollNavigation();
             },
             watch: {
@@ -364,100 +366,33 @@
                 }
             },
             methods: {
-                async initializeApp() {
-                    // First ensure background is submitted
-                    await this.ensureBackgroundSubmitted();
-                    // Then generate videos
-                    await this.generateInitialVideos();
-                },
-
-                async ensureBackgroundSubmitted() {
-                    try {
-                        // Submit a minimal background to satisfy the API
-                        const response = await fetch('http://localhost:8000/background', {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json'
-                            },
-                            body: JSON.stringify({ 
-                                description: 'General learner interested in educational content'
-                            })
-                        });
-                        
-                        if (response.ok) {
-                            this.backgroundSubmitted = true;
-                        }
-                    } catch (err) {
-                        console.warn('Could not submit background:', err);
-                    }
-                },
-
-                async generateInitialVideos() {
+                async loadHistoryVideos() {
                     try {
                         this.loading = true;
                         this.error = '';
                         
-                        const response = await fetch('http://localhost:8000/generate_videos', {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json'
-                            },
-                            body: JSON.stringify({ 
-                                topics: ['educational content']
-                            })
-                        });
+                        const response = await fetch('http://localhost:8000/history');
 
                         if (!response.ok) {
                             const errorText = await response.text();
-                            throw new Error(errorText || 'Failed to generate videos');
+                            throw new Error(errorText || 'Failed to load video history');
                         }
 
                         const data = await response.json();
                         this.videos = Array.isArray(data) ? data : [data];
                         
-                        if (this.videos.length === 0) {
-                            throw new Error('No videos were generated');
-                        }
-
-                    } catch (err) {
-                        console.error('Error generating videos:', err);
-                        this.error = err.message || 'Failed to load videos';
-                    } finally {
-                        this.loading = false;
-                    }
-                },
-
-                async generateVideos() {
-                    if (this.generating) return;
-                    
-                    try {
-                        this.generating = true;
-                        this.error = '';
-                        
-                        const response = await fetch('http://localhost:8000/generate_videos', {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json'
-                            },
-                            body: JSON.stringify({ 
-                                topics: ['educational content']
-                            })
+                        // Sort by creation date (newest first)
+                        this.videos.sort((a, b) => {
+                            const dateA = new Date(a.created_at || 0);
+                            const dateB = new Date(b.created_at || 0);
+                            return dateB - dateA;
                         });
 
-                        if (!response.ok) {
-                            const errorText = await response.text();
-                            throw new Error(errorText || 'Failed to generate videos');
-                        }
-
-                        const data = await response.json();
-                        const newVideos = Array.isArray(data) ? data : [data];
-                        this.videos = [...this.videos, ...newVideos];
-
                     } catch (err) {
-                        console.error('Error generating more videos:', err);
-                        this.error = err.message || 'Failed to generate more videos';
+                        console.error('Error loading history:', err);
+                        this.error = err.message || 'Failed to load video history';
                     } finally {
-                        this.generating = false;
+                        this.loading = false;
                     }
                 },
 
@@ -467,11 +402,9 @@
                         this.$refs.videoPlayer.play().catch(console.warn);
                     }
                     
-                    if (this.$refs.audioPlayer) {
+                    if (this.$refs.audioPlayer && !this.muted) {
                         this.$refs.audioPlayer.currentTime = 0;
-                        if (!this.muted) {
-                            this.$refs.audioPlayer.play().catch(console.warn);
-                        }
+                        this.$refs.audioPlayer.play().catch(console.warn);
                     }
                 },
 
@@ -479,7 +412,7 @@
                     let isScrolling = false;
 
                     const handleWheel = (e) => {
-                        if (isScrolling) return;
+                        if (isScrolling || this.videos.length <= 1) return;
                         
                         e.preventDefault();
                         isScrolling = true;
@@ -516,10 +449,6 @@
                 navigateToVideo(index) {
                     if (index >= 0 && index < this.videos.length) {
                         this.currentIndex = index;
-                        
-                        if (index >= this.videos.length - 2 && !this.generating) {
-                            this.generateVideos();
-                        }
                     }
                 },
 
@@ -527,10 +456,11 @@
                     this.muted = !this.muted;
                     
                     if (this.$refs.audioPlayer) {
+                        this.$refs.audioPlayer.muted = this.muted;
+                        
                         if (this.muted) {
                             this.$refs.audioPlayer.pause();
                         } else {
-                            // Sync audio with video time
                             this.$refs.audioPlayer.currentTime = this.$refs.videoPlayer?.currentTime || 0;
                             this.$refs.audioPlayer.play().catch(console.warn);
                         }
@@ -549,9 +479,30 @@
                     window.location.href = '../index.html';
                 },
 
+                goToFeed() {
+                    window.location.href = 'feed.html';
+                },
+
                 retry() {
                     this.error = '';
-                    this.initializeApp();
+                    this.loadHistoryVideos();
+                },
+
+                formatDate(dateString) {
+                    if (!dateString) return 'Unknown date';
+                    
+                    try {
+                        const date = new Date(dateString);
+                        return date.toLocaleDateString('en-US', {
+                            month: 'short',
+                            day: 'numeric',
+                            year: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                        });
+                    } catch (e) {
+                        return 'Invalid date';
+                    }
                 },
 
                 onVideoLoaded() {

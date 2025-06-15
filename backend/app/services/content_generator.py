@@ -13,12 +13,38 @@ from pydantic import BaseModel, Field
 
 from ..prompts.video_generation_prompts import (
     BATCH_GENERATION_PROMPT,
+    CONCEPT_SELECTION_PROMPT,
     RECOMMENDATION_PROMPT,
     TRANSCRIPT_GENERATION_PROMPT,
 )
 
 
 logger = logging.getLogger(__name__)
+
+# Rotating style guides for transcript generation
+STYLE_GUIDES = [
+    "The transcript should be comedy-like and make people laugh, using humor and funny examples to make the content memorable.",
+    "The transcript should be story-telling like, presenting the educational content as a compelling narrative with characters and plot.",
+    "The transcript should be conversational and friendly, as if explaining to a close friend over coffee.",
+    "The transcript should be dramatic and exciting, building suspense and energy around the educational content.",
+    "The transcript should be like a documentary, presenting facts in an authoritative yet engaging manner.",
+    "The transcript should be interactive and quiz-like, encouraging viewer participation and self-testing.",
+    "The transcript should be motivational and inspiring, connecting the learning to personal growth and success.",
+    "The transcript should be simple and clear, breaking down complex topics into easy-to-understand chunks.",
+    "The transcript should be fast-paced and energetic, perfect for viewers who want quick, punchy information.",
+    "The transcript should be curious and exploratory, presenting the topic as a fascinating mystery to uncover."
+]
+
+# Counter to track which style guide to use next
+_style_guide_counter = 0
+
+
+def get_next_style_guide() -> str:
+    """Get the next style guide in rotation."""
+    global _style_guide_counter
+    style_guide = STYLE_GUIDES[_style_guide_counter % len(STYLE_GUIDES)]
+    _style_guide_counter += 1
+    return style_guide
 
 
 class VideoContent(BaseModel):
@@ -47,6 +73,16 @@ class VideoConcept(BaseModel):
     connection_to_interests: str
 
 
+class ConceptSelection(BaseModel):
+    """Selected concept model."""
+    
+    selected_concept: str
+    reasoning: str
+    difficulty_level: str
+    target_audience: str
+    learning_connection: str
+
+
 class ContentRecommendation(BaseModel):
     """Content recommendation model."""
 
@@ -70,6 +106,69 @@ class ContentGeneratorService:
         # Use the latest recommended model from the documentation
         self.model_name = "gemini-2.5-flash-preview-05-20"
 
+    async def select_concept_for_user(self, user_description: str) -> ConceptSelection:
+        """Select an appropriate educational concept based on user background."""
+        try:
+            prompt = CONCEPT_SELECTION_PROMPT.format(user_description=user_description)
+            
+            full_prompt = f"""You are an expert educational content strategist. Analyze user backgrounds and select appropriate educational concepts. Always respond with valid JSON that matches the requested schema.
+
+{prompt}"""
+            
+            response = self.client.models.generate_content(
+                model=self.model_name,
+                contents=full_prompt,
+                config=types.GenerateContentConfig(
+                    temperature=0.6,
+                    max_output_tokens=1024,
+                    response_mime_type="application/json"
+                )
+            )
+            
+            response_text = str(response.text) if response.text is not None else "{}"
+            logger.info(f"Concept selection raw response: {response_text}")
+            
+            try:
+                concept_data = json.loads(response_text)
+            except json.JSONDecodeError as e:
+                logger.warning(f"JSON parsing failed for concept selection: {e}")
+                logger.warning(f"Raw response: {response_text}")
+                # Fallback to a default concept selection
+                concept_data = {
+                    "selected_concept": "Basic Mathematical Operations",
+                    "reasoning": "Selected a fundamental math concept suitable for general learning",
+                    "difficulty_level": "intermediate",
+                    "target_audience": "general learners",
+                    "learning_connection": "Mathematics is foundational for many fields of study"
+                }
+            
+            # Validate the response contains required fields
+            if not isinstance(concept_data, dict) or not concept_data:
+                logger.warning("Empty or invalid concept selection response, using fallback")
+                concept_data = {
+                    "selected_concept": "Introduction to Problem Solving",
+                    "reasoning": "Problem solving is a universal skill applicable to all learners",
+                    "difficulty_level": "intermediate",
+                    "target_audience": "general learners",
+                    "learning_connection": "Problem solving skills are essential in any field"
+                }
+            
+            concept_selection = ConceptSelection(**concept_data)
+            logger.info(f"Selected concept: {concept_selection.selected_concept}")
+            return concept_selection
+            
+        except Exception as e:
+            logger.exception(f"Error selecting concept: {e!s}")
+            # Return a fallback concept selection instead of raising
+            logger.info("Using fallback concept selection due to error")
+            return ConceptSelection(
+                selected_concept="Critical Thinking Fundamentals",
+                reasoning="Critical thinking is valuable for all learners when other selection methods fail",
+                difficulty_level="intermediate",
+                target_audience="general learners",
+                learning_connection="Critical thinking applies across all subjects and professions"
+            )
+
     async def generate_video_transcript(
         self,
         topic: str,
@@ -79,11 +178,15 @@ class ContentGeneratorService:
     ) -> VideoContent:
         """Generate a video transcript with metadata."""
         try:
+            # Get the next style guide in rotation
+            style_guide = get_next_style_guide()
+            
             prompt = TRANSCRIPT_GENERATION_PROMPT.format(
                 topic=topic,
                 difficulty_level=difficulty_level,
                 target_audience=target_audience,
-                style=style
+                style=style,
+                style_guide=style_guide
             )
 
             # Integrate system instruction into the prompt for compatibility
@@ -166,7 +269,9 @@ Remember to practice what you've learned today, and if you found this helpful, l
                 metadata={
                     "target_audience": target_audience,
                     "language": "en",
-                    "generation_model": self.model_name
+                    "generation_model": self.model_name,
+                    "style_guide": style_guide,
+                    "style_guide_index": (_style_guide_counter - 1) % len(STYLE_GUIDES)
                 }
             )
 
@@ -183,7 +288,7 @@ Remember to practice what you've learned today, and if you found this helpful, l
         learning_style: str = "mixed",
         difficulty_preference: str = "intermediate",
         recent_topics: list[str] | None = None,
-        batch_size: int = 20
+        batch_size: int = 6
     ) -> list[VideoConcept]:
         """Generate a batch of video concepts."""
         try:

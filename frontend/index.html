@@ -1,245 +1,321 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>EduTok Demo</title>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EduTok - AI Educational Videos</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Bootstrap Icons -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
     <style>
-      body,
-      html {
-        margin: 0;
-        padding: 0;
-        font-family: Arial, sans-serif;
-        background: #111;
-        color: #fff;
-        height: 100vh;
-        overflow: hidden;
-      }
-      button {
-        padding: 12px 24px;
-        margin: 8px;
-        border: none;
-        border-radius: 4px;
-        cursor: pointer;
-        font-size: 1rem;
-      }
-      .primary-btn {
-        background: #ff4757;
-        color: white;
-      }
-      .secondary-btn {
-        background: #2ed573;
-        color: white;
-      }
-      /* Landing */
-      .centered {
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-        align-items: center;
-        height: 100%;
-        text-align: center;
-      }
-      /* Modal */
-      .modal-backdrop {
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background: rgba(0, 0, 0, 0.7);
-        display: flex;
-        justify-content: center;
-        align-items: center;
-      }
-      .modal {
-        background: #222;
-        padding: 24px;
-        border-radius: 8px;
-        width: 320px;
-      }
-      .modal input {
-        width: 100%;
-        padding: 8px;
-        margin: 6px 0 12px 0;
-        border-radius: 4px;
-        border: none;
-      }
-      /* Video Feed */
-      .video-container {
-        height: 100%;
-        overflow: hidden;
-        position: relative;
-      }
-      video {
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
-      }
-      .video-overlay {
-        position: absolute;
-        top: 16px;
-        left: 16px;
-      }
-    </style>
-    <!-- React via CDN for quick demo -->
-    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
-    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-  </head>
-  <body>
-    <div id="root"></div>
+        body, html {
+            margin: 0;
+            padding: 0;
+            height: 100vh;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #fff;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            overflow: hidden;
+        }
 
-    <script type="text/babel">
-      const { useState, useEffect } = React;
+        .hero-container {
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
 
-      /* --------------------------- Landing Page --------------------------- */
-      function Landing({ onShowModal, onStart }) {
-        return (
-          <div className="centered">
-            <h1>EduTok 📚</h1>
-            <p>Short educational clips tailored to <em>you</em>.</p>
-            <div>
-              <button className="primary-btn" onClick={onShowModal}>
-                Input My Background
-              </button>
-              <button className="secondary-btn" onClick={onStart}>
-                Start Exploring
-              </button>
-            </div>
-          </div>
-        );
-      }
+        .hero-content {
+            text-align: center;
+            max-width: 600px;
+            padding: 40px;
+        }
 
-      /* ------------------------------ Modal ------------------------------ */
-      function BackgroundModal({ onClose, onSubmit }) {
-        const [form, setForm] = useState({ job: "", education_level: "", interests: "" });
-        const [error, setError] = useState("");
+        .hero-title {
+            font-size: 4rem;
+            font-weight: 800;
+            margin-bottom: 1rem;
+            background: linear-gradient(45deg, #fff, #f8f9fa);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            letter-spacing: -2px;
+        }
 
-        const handleChange = (e) => {
-          setForm({ ...form, [e.target.name]: e.target.value });
-        };
+        .hero-subtitle {
+            font-size: 1.25rem;
+            margin-bottom: 2rem;
+            opacity: 0.9;
+            line-height: 1.6;
+        }
 
-        const handleSubmit = async () => {
-          const interestsArr = form.interests.split(/[,;]/).map((s) => s.trim()).filter(Boolean);
-          try {
-            const res = await fetch("http://localhost:8000/background", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ ...form, interests: interestsArr }),
-            });
-            if (!res.ok) {
-              const text = await res.text();
-              setError(text || "Failed to save background");
-              return;
+        .cta-button {
+            font-size: 1.1rem;
+            padding: 15px 40px;
+            border-radius: 50px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            text-transform: none;
+            letter-spacing: 0.5px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        }
+
+        .cta-button:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.3);
+        }
+
+        .modal-content {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            border: none;
+            border-radius: 20px;
+            color: #333;
+        }
+
+        .modal-header {
+            border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+            background: transparent;
+        }
+
+        .modal-body {
+            padding: 2rem;
+        }
+
+        .form-control {
+            border-radius: 12px;
+            border: 2px solid rgba(0, 0, 0, 0.1);
+            padding: 12px 16px;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+        }
+
+        .form-control:focus {
+            border-color: #667eea;
+            box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            border: none;
+            border-radius: 12px;
+            padding: 12px 24px;
+            font-weight: 600;
+        }
+
+        .btn-outline-secondary {
+            border: 2px solid rgba(0, 0, 0, 0.2);
+            border-radius: 12px;
+            padding: 12px 24px;
+            font-weight: 600;
+        }
+
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 2000;
+        }
+
+        .loading-content {
+            text-align: center;
+            color: #fff;
+        }
+
+        @media (max-width: 768px) {
+            .hero-title {
+                font-size: 2.5rem;
             }
-            setError("");
-            onSubmit();
-          } catch (e) {
-            setError("Network error");
-          }
-        };
 
-        return (
-          <div className="modal-backdrop" onClick={onClose}>
-            <div className="modal" onClick={(e) => e.stopPropagation()}>
-              <h2>Your Background</h2>
-              {error && <p className="error" style={{ color: '#ff6b6b' }}>{error}</p>}
-              <input name="job" placeholder="Job" onChange={handleChange} value={form.job} />
-              <input
-                name="education_level"
-                placeholder="Education level"
-                onChange={handleChange}
-                value={form.education_level}
-              />
-              <input
-                name="interests"
-                placeholder="Interests (comma-separated)"
-                onChange={handleChange}
-                value={form.interests}
-              />
-              <button className="primary-btn" onClick={handleSubmit}>Submit</button>
+            .hero-subtitle {
+                font-size: 1rem;
+            }
+
+            .hero-content {
+                padding: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="app">
+        <!-- Loading Overlay -->
+        <div v-if="submitting" class="loading-overlay">
+            <div class="loading-content">
+                <div class="spinner-border text-light mb-3" style="width: 3rem; height: 3rem;"></div>
+                <h4>Setting up your personalized experience...</h4>
+                <p>This will only take a moment</p>
             </div>
-          </div>
-        );
-      }
+        </div>
 
-      /* --------------------------- Video Feed --------------------------- */
-      function VideoFeed() {
-        const [videos, setVideos] = useState([]);
-        const [idx, setIdx] = useState(0);
-
-        const fetchVideo = async () => {
-          const topics = prompt("Enter a topic you want to learn (e.g., calculus)");
-          if (!topics) return;
-          const res = await fetch("http://localhost:8000/generate_video", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ topics: [topics] }),
-          });
-          const data = await res.json();
-          setVideos((prev) => [...prev, data]);
-          setIdx((prev) => prev + 1);
-        };
-
-        // wheel navigation
-        useEffect(() => {
-          const handler = (e) => {
-            if (e.deltaY > 0 && idx < videos.length - 1) setIdx(idx + 1);
-            else if (e.deltaY < 0 && idx > 0) setIdx(idx - 1);
-          };
-          window.addEventListener("wheel", handler);
-          return () => window.removeEventListener("wheel", handler);
-        }, [idx, videos.length]);
-
-        const current = videos[idx];
-
-        return (
-          <div className="video-container">
-            {current ? (
-              <>
-                <video src={current.video_url} autoPlay loop muted />
-                <div className="video-overlay">
-                  <p>{current.transcript}</p>
-                  <div>
-                    <button className="secondary-btn" style={{marginRight: '8px'}}>👍</button>
-                    <button className="primary-btn">👎</button>
-                  </div>
+        <!-- Hero Section -->
+        <div class="hero-container">
+            <div class="hero-content">
+                <h1 class="hero-title">EduTok 📚</h1>
+                <p class="hero-subtitle">
+                    AI-powered educational videos tailored to <strong>you</strong><br>
+                    <small class="text-white-50">Get personalized learning content generated by AI in seconds</small>
+                </p>
+                <div class="d-flex gap-3 justify-content-center flex-wrap">
+                    <button class="btn btn-danger btn-lg cta-button" @click="showModal = true">
+                        <i class="bi bi-play-circle me-2"></i>Start Learning
+                    </button>
+                    <button class="btn btn-outline-light btn-lg cta-button" @click="goToHistory">
+                        <i class="bi bi-clock-history me-2"></i>Watch History
+                    </button>
                 </div>
-              </>
-            ) : (
-              <div className="centered">
-                <p>No videos yet.</p>
-                <button className="primary-btn" onClick={fetchVideo}>
-                  Generate First Video
-                </button>
-              </div>
-            )}
-          </div>
-        );
-      }
+            </div>
+        </div>
 
-      /* ------------------------------ App ------------------------------ */
-      function App() {
-        const [showModal, setShowModal] = useState(false);
+        <!-- Background Modal -->
+        <div class="modal fade" :class="{ show: showModal }" :style="{ display: showModal ? 'block' : 'none' }" tabindex="-1">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">
+                            <i class="bi bi-person-gear me-2"></i>Personalize Your Learning
+                        </h5>
+                        <button type="button" class="btn-close" @click="closeModal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p class="text-muted mb-4">
+                            Help us create better educational content for you (optional)
+                        </p>
 
-        return (
-          <>
-            <Landing
-              onShowModal={() => setShowModal(true)}
-              onStart={() => (window.location.href = "pages/feed.html")}
-            />
-            {showModal && (
-              <BackgroundModal
-                onClose={() => setShowModal(false)}
-                onSubmit={() => setShowModal(false)}
-              />
-            )}
-          </>
-        );
-      }
+                        <div v-if="error" class="alert alert-danger">
+                            <i class="bi bi-exclamation-triangle me-2"></i>{{ error }}
+                        </div>
 
-      ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+                        <div class="mb-4">
+                            <label for="backgroundText" class="form-label fw-semibold">Tell us about yourself</label>
+                            <textarea
+                                id="backgroundText"
+                                v-model="backgroundText"
+                                class="form-control"
+                                rows="5"
+                                placeholder="Describe your background, education, profession, interests, and what you'd like to learn. For example: 'I'm a high school student interested in mathematics and science, currently studying calculus and physics.'"
+                                :disabled="submitting"
+                            ></textarea>
+                            <div class="form-text">
+                                <i class="bi bi-lightbulb me-1"></i>
+                                The more details you provide, the better we can tailor content to your learning style and interests.
+                            </div>
+                        </div>
+
+                        <div class="d-flex gap-3">
+                            <button
+                                class="btn btn-primary flex-fill"
+                                @click="submitBackground"
+                                :disabled="submitting"
+                            >
+                                <span v-if="submitting">
+                                    <div class="spinner-border spinner-border-sm me-2"></div>
+                                    Creating...
+                                </span>
+                                <span v-else>
+                                    <i class="bi bi-rocket me-2"></i>Get Personalized Content
+                                </span>
+                            </button>
+                            <button
+                                class="btn btn-outline-secondary"
+                                @click="skipPersonalization"
+                                :disabled="submitting"
+                            >
+                                Skip
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal Backdrop -->
+        <div v-if="showModal" class="modal-backdrop fade show" @click="closeModal"></div>
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- Vue.js -->
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+
+    <script>
+        const { createApp } = Vue;
+
+        createApp({
+            data() {
+                return {
+                    showModal: false,
+                    backgroundText: '',
+                    submitting: false,
+                    error: ''
+                }
+            },
+            mounted() {
+                // Ensure we're not stuck in submitting state
+                this.submitting = false;
+            },
+            methods: {
+                closeModal() {
+                    if (!this.submitting) {
+                        this.showModal = false;
+                        this.error = '';
+                    }
+                },
+
+                async submitBackground() {
+                    try {
+                        this.submitting = true;
+                        this.error = '';
+
+                        const response = await fetch('http://localhost:8000/background', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({
+                                description: this.backgroundText.trim()
+                            })
+                        });
+
+                        if (!response.ok) {
+                            const errorText = await response.text();
+                            throw new Error(errorText || 'Failed to save background');
+                        }
+
+                        // Success - redirect to feed
+                        this.redirectToFeed();
+
+                    } catch (err) {
+                        console.error('Error submitting background:', err);
+                        this.error = err.message || 'Network error occurred';
+                        this.submitting = false;
+                    }
+                },
+
+                skipPersonalization() {
+                    this.redirectToFeed();
+                },
+
+                redirectToFeed() {
+                    // Add a small delay for better UX
+                    setTimeout(() => {
+                        window.location.href = 'pages/feed.html';
+                    }, 500);
+                },
+
+                goToHistory() {
+                    window.location.href = 'pages/history.html';
+                }
+            }
+        }).mount('#app');
     </script>
-  </body>
+</body>
 </html>

@@ -1,32 +1,66 @@
 {
-  "timestamp": 1750010252.0217361,
-  "total_videos": 1,
+  "timestamp": 1750014232.263937,
+  "total_videos": 3,
+  "generation_mode": "ai",
   "videos": [
     {
-      "video_url": "http://localhost:8000/storage/videos/5cf6313a-ca2a-4671-af09-b38fe4b85875_video.mp4",
-      "transcript": "Ever stared at a complex dataset and wished it could just\u2026 tell you its secrets? [PAUSE] That's where Machine Learning algorithms come in!\n\nThese aren't just black boxes; they are the sophisticated computational paradigms that enable systems to learn from data without explicit programming. [PAUSE] Whether it's the discriminative power of Support Vector Machines, the hierarchical feature extraction of deep neural networks, or the probabilistic inference behind Gaussian Mixture Models, each algorithm embodies a unique inductive bias. [PAUSE] We leverage supervised algorithms for predictive tasks, unsupervised for uncovering latent structures, and reinforcement learning for sequential decision-making in dynamic environments. [PAUSE] Understanding their underlying optimization landscapes and generalization bounds is crucial.\n\nThey are the bedrock upon which truly intelligent systems are built. What's one ML algorithm that blew your mind?",
-      "title": "Cracking the Code: ML Algorithms Explained",
-      "audio_url": "http://localhost:8000/storage/audio/5cf6313a-ca2a-4671-af09-b38fe4b85875_audio.wav",
-      "duration_seconds": 55.41095833333333,
+      "video_url": "http://localhost:8000/storage/videos/60791ada-a6be-436b-817e-cde4b94336c3_video.mp4",
+      "transcript": "Ever pondered the foundational mechanics driving modern AI systems? It's all about the algorithms! [PAUSE] At its essence, Machine Learning involves constructing models that infer patterns from data, enabling autonomous learning. The *methodology*? That's the domain of ML algorithms. [PAUSE] Consider supervised learning: algorithms like SVMs or Neural Networks trained on labeled datasets for classification or regression tasks. [PAUSE] Then, unsupervised learning: algorithms such as K-Means or PCA, designed to discover intrinsic structures within unlabeled data. [PAUSE] And finally, reinforcement learning: where agents, via algorithms like Q-learning or Policy Gradients, learn optimal behaviors through iterative interaction and reward signals. [PAUSE] These algorithmic paradigms are the bedrock of ML, each offering a distinct approach to knowledge extraction and predictive modeling. [PAUSE] Understanding their nuances is paramount for any serious ML practitioner.",
+      "title": "The Algorithmic Backbone of ML",
+      "audio_url": "http://localhost:8000/storage/audio/60791ada-a6be-436b-817e-cde4b94336c3_audio.wav",
+      "duration_seconds": 61.77095833333333,
       "topics": [
-        "Machine Learning",
-        "ML Algorithms",
+        "Machine Learning Algorithms",
         "Supervised Learning",
         "Unsupervised Learning",
         "Reinforcement Learning",
-        "Inductive Bias",
-        "Generalization",
-        "Optimization",
-        "Support Vector Machines",
-        "Deep Neural Networks",
-        "Gaussian Mixture Models"
+        "SVM",
+        "Neural Networks",
+        "K-Means",
+        "PCA",
+        "Q-learning",
+        "Policy Gradients"
       ],
       "metadata": {
-        "video_id": "5cf6313a-ca2a-4671-af09-b38fe4b85875",
+        "video_id": "60791ada-a6be-436b-817e-cde4b94336c3",
+        "style": "explanation",
+        "difficulty_level": "Masters in Computer Science",
+        "voice_used": "Aoede",
+        "generation_method": "video_samples"
+      }
+    },
+    {
+      "video_url": "http://localhost:8000/storage/videos/6aecc474-c228-45fa-b905-00dade3e9478_video.mp4",
+      "transcript": "Welcome to this educational video about Web Development Best Practices! [PAUSE]\n                    \nToday, we're diving deep into the fascinating world of Web Development Best Practices. This is one of the most important concepts you'll learn, and I'm excited to share it with you.\n\nFirst, let's understand what Web Development Best Practices really means. At its core, Web Development Best Practices is about understanding fundamental principles that shape our understanding of the subject. [PAUSE]\n\nThe key things to remember are: First, always approach Web Development Best Practices with curiosity. Second, practice makes perfect when it comes to mastering these concepts. And third, don't be afraid to make mistakes - they're part of the learning process.\n\nBy the end of this video, you'll have a solid foundation in Web Development Best Practices and be ready to explore even more advanced topics. [PAUSE]\n\nRemember to practice what you've learned today, and if you found this helpful, let me know in the comments! Keep learning and stay curious!",
+      "title": "Master Web Development Best Practices in 30 Seconds",
+      "audio_url": "http://localhost:8000/storage/audio/6aecc474-c228-45fa-b905-00dade3e9478_audio.wav",
+      "duration_seconds": 61.53095833333333,
+      "topics": [
+        "Web Development Best Practices"
+      ],
+      "metadata": {
+        "video_id": "6aecc474-c228-45fa-b905-00dade3e9478",
         "style": "explanation",
         "difficulty_level": "Masters in Computer Science",
         "voice_used": "Kore",
-        "generation_method": "gemini_veo_looped"
+        "generation_method": "video_samples"
+      }
+    },
+    {
+      "video_url": "http://localhost:8000/storage/videos/6ca11db0-0461-47c3-91d4-814ef4a2acb0_video.mp4",
+      "transcript": "Welcome to this educational video about Data Science Fundamentals! [PAUSE]\n                    \nToday, we're diving deep into the fascinating world of Data Science Fundamentals. This is one of the most important concepts you'll learn, and I'm excited to share it with you.\n\nFirst, let's understand what Data Science Fundamentals really means. At its core, Data Science Fundamentals is about understanding fundamental principles that shape our understanding of the subject. [PAUSE]\n\nThe key things to remember are: First, always approach Data Science Fundamentals with curiosity. Second, practice makes perfect when it comes to mastering these concepts. And third, don't be afraid to make mistakes - they're part of the learning process.\n\nBy the end of this video, you'll have a solid foundation in Data Science Fundamentals and be ready to explore even more advanced topics. [PAUSE]\n\nRemember to practice what you've learned today, and if you found this helpful, let me know in the comments! Keep learning and stay curious!",
+      "title": "Master Data Science Fundamentals in 30 Seconds",
+      "audio_url": "http://localhost:8000/storage/audio/6ca11db0-0461-47c3-91d4-814ef4a2acb0_audio.wav",
+      "duration_seconds": 59.57095833333333,
+      "topics": [
+        "Data Science Fundamentals"
+      ],
+      "metadata": {
+        "video_id": "6ca11db0-0461-47c3-91d4-814ef4a2acb0",
+        "style": "explanation",
+        "difficulty_level": "Masters in Computer Science",
+        "voice_used": "Aoede",
+        "generation_method": "video_samples"
       }
     }
   ]

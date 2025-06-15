@@ -4,6 +4,7 @@ import asyncio
 import json
 import logging
 import os
+import random
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -55,9 +56,12 @@ class VideoService:
         self.use_short_videos = os.getenv("USE_SHORT_VIDEOS", "true").lower() == "true"
         self.short_video_duration = int(os.getenv("SHORT_VIDEO_DURATION", "10"))
         self.enable_video_looping = os.getenv("ENABLE_VIDEO_LOOPING", "true").lower() == "true"
+        self.video_generation_mode = os.getenv("VIDEO_GENERATION_MODE", "ai").lower()
+        self.video_samples_count = int(os.getenv("VIDEO_SAMPLES_COUNT", "3"))
+        self.video_samples_path = Path("../storage/video_samples")
 
-        logger.info(f"Video settings: short_videos={self.use_short_videos}, "
-                   f"duration={self.short_video_duration}s, looping={self.enable_video_looping}")
+        logger.info(f"Video settings: mode={self.video_generation_mode}, short_videos={self.use_short_videos}, "
+                   f"duration={self.short_video_duration}s, looping={self.enable_video_looping}, samples_count={self.video_samples_count}")
 
         if not self.api_key:
             logger.warning("GEMINI_API_KEY not found. Video generation will be mocked.")
@@ -98,6 +102,12 @@ class VideoService:
         output_filename = f"{video_id}_video.mp4"
         output_path = self.storage_path / output_filename
 
+        # Check video generation mode
+        if self.video_generation_mode == "samples":
+            logger.info("Using video samples mode")
+            return await self._generate_video_from_samples(request, output_path)
+        
+        # Original AI generation mode
         if not self.client:
             # Fall back to mock if no client available
             return await self._mock_video_generation(request, output_path)
@@ -247,6 +257,300 @@ class VideoService:
 
             # Fall back to mock generation
             return await self._mock_video_generation(request, output_path)
+
+    async def _generate_video_from_samples(self, request: VideoGenerationRequest, output_path: Path) -> VideoGenerationResult:
+        """Generate video by stitching together random samples from video_samples directory."""
+        try:
+            # Get all video files from samples directory
+            sample_files = list(self.video_samples_path.glob("*.mp4"))
+            
+            if not sample_files:
+                logger.warning("No video samples found, falling back to mock generation")
+                return await self._mock_video_generation(request, output_path)
+            
+            # Randomly select videos to stitch
+            num_samples = min(self.video_samples_count, len(sample_files))
+            selected_samples = random.sample(sample_files, num_samples)
+            
+            logger.info(f"Selected {num_samples} video samples to stitch: {[f.name for f in selected_samples]}")
+            
+            # Get target duration (from audio if available, otherwise use requested duration)
+            target_duration = request.duration_seconds
+            if request.audio_file_path and Path(request.audio_file_path).exists():
+                try:
+                    import subprocess
+                    audio_duration_cmd = ["ffprobe", "-v", "quiet", "-show_entries", "format=duration", "-of", "csv=p=0", str(request.audio_file_path)]
+                    audio_result = subprocess.run(audio_duration_cmd, capture_output=True, text=True, timeout=30, check=False)
+                    if audio_result.returncode == 0:
+                        target_duration = float(audio_result.stdout.strip())
+                        logger.info(f"Using audio duration as target: {target_duration:.2f}s")
+                except Exception as e:
+                    logger.warning(f"Could not get audio duration: {e}")
+            
+            # Stitch videos together with target duration (this will create 5s segments and loop to fill duration)
+            stitched_video_path = await self._stitch_video_samples(selected_samples, output_path, target_duration)
+            
+            # If audio is provided, combine with the stitched video
+            if request.audio_file_path and Path(request.audio_file_path).exists():
+                final_video_path = await self._combine_video_audio(
+                    stitched_video_path, 
+                    output_path.with_suffix(".final.mp4"), 
+                    request.audio_file_path
+                )
+                # Replace the output with the final version
+                if final_video_path != output_path:
+                    final_video_path.rename(output_path)
+                actual_duration = target_duration
+            else:
+                actual_duration = target_duration
+            
+            file_size = output_path.stat().st_size
+            
+            logger.info(f"Video generated from samples: {output_path} (duration: {actual_duration:.2f}s)")
+            
+            return VideoGenerationResult(
+                video_file_path=str(output_path),
+                thumbnail_path=None,
+                duration_seconds=actual_duration,
+                file_size_bytes=file_size,
+                aspect_ratio="16:9",
+                generation_method="video_samples",
+                metadata={
+                    "prompt": request.prompt,
+                    "style": request.style,
+                    "transcript_length": len(request.transcript) if request.transcript else 0,
+                    "has_audio": request.audio_file_path is not None,
+                    "samples_used": [f.name for f in selected_samples],
+                    "samples_count": num_samples,
+                },
+            )
+            
+        except Exception as e:
+            logger.exception(f"Error generating video from samples: {e}")
+            # Fall back to mock generation
+            return await self._mock_video_generation(request, output_path)
+
+    async def _stitch_video_samples(self, sample_files: list[Path], output_path: Path, target_duration: float = None) -> Path:
+        """Stitch multiple video samples together using 5-second segments from each, looping to fill target duration."""
+        try:
+            import subprocess
+            import tempfile
+            import asyncio
+            from concurrent.futures import ThreadPoolExecutor
+            
+            segment_duration = 5.0  # Use 5 seconds from each sample
+            logger.info(f"Creating video from {len(sample_files)} samples using {segment_duration}s segments")
+            
+            if target_duration:
+                logger.info(f"Target duration: {target_duration:.2f}s")
+            
+            # OPTIMIZATION: Try direct concatenation with trimming first (fastest method)
+            if len(sample_files) == 1 and target_duration:
+                logger.info("Single sample file - using direct loop/trim method for maximum speed")
+                return await self._direct_loop_video(sample_files[0], output_path, segment_duration, target_duration)
+            
+            # Create 5-second segments from each sample first
+            segment_files = []
+            temp_dir = Path(tempfile.mkdtemp())
+            
+            try:
+                # Step 1: Extract 5-second segments from each sample (PARALLEL PROCESSING)
+                async def create_segment(i: int, sample_file: Path) -> tuple[int, Path | None]:
+                    """Create a single segment asynchronously"""
+                    segment_file = temp_dir / f"segment_{i:03d}.mp4"
+                    
+                    # Use hardware acceleration if available, with fast presets
+                    cmd_segment = [
+                        "ffmpeg", "-y",
+                        "-hwaccel", "auto",  # Auto-detect hardware acceleration
+                        "-i", str(sample_file),
+                        "-t", str(segment_duration),  # Take only first 5 seconds
+                        "-c:v", "libx264",
+                        "-c:a", "aac",
+                        "-preset", "ultrafast",  # Faster preset
+                        "-crf", "28",  # Slightly lower quality for speed
+                        str(segment_file)
+                    ]
+                    
+                    def run_ffmpeg():
+                        return subprocess.run(cmd_segment, capture_output=True, text=True, timeout=30, check=False)
+                    
+                    loop = asyncio.get_event_loop()
+                    with ThreadPoolExecutor() as executor:
+                        result = await loop.run_in_executor(executor, run_ffmpeg)
+                    
+                    if result.returncode == 0:
+                        logger.info(f"Created {segment_duration}s segment from {sample_file.name}")
+                        return i, segment_file
+                    else:
+                        logger.warning(f"Failed to create segment from {sample_file.name}: {result.stderr}")
+                        return i, None
+                
+                # Run all segment creation tasks concurrently
+                tasks = [create_segment(i, sample_file) for i, sample_file in enumerate(sample_files)]
+                results = await asyncio.gather(*tasks, return_exceptions=True)
+                
+                # Collect successful segments in order
+                for i, segment_file in results:
+                    if isinstance(segment_file, Exception):
+                        logger.error(f"Segment creation failed with exception: {segment_file}")
+                    elif segment_file is not None:
+                        segment_files.append(segment_file)
+                
+                if not segment_files:
+                    raise Exception("No segments could be created from samples")
+                
+                # Step 2: Calculate how many loops we need to fill target duration
+                if target_duration:
+                    total_segment_duration = len(segment_files) * segment_duration
+                    loops_needed = max(1, int(target_duration / total_segment_duration) + 1)
+                    logger.info(f"Need {loops_needed} loops of {total_segment_duration:.1f}s segments to fill {target_duration:.2f}s")
+                else:
+                    loops_needed = 1
+                    logger.info("No target duration specified, using segments once")
+                
+                # Step 3: Create concat file with repeated segments
+                with tempfile.NamedTemporaryFile(mode='w', suffix='.txt', delete=False) as f:
+                    concat_file = f.name
+                    for loop in range(loops_needed):
+                        for segment_file in segment_files:
+                            f.write(f"file '{segment_file.absolute()}'\n")
+                
+                # Step 4: Concatenate all segments with hardware acceleration
+                cmd_concat = [
+                    "ffmpeg", "-y",
+                    "-hwaccel", "auto",  # Hardware acceleration for decoding
+                    "-f", "concat",
+                    "-safe", "0",
+                    "-i", concat_file,
+                    "-c", "copy",  # Copy streams without re-encoding for speed
+                    "-avoid_negative_ts", "make_zero",  # Fix timestamp issues
+                    str(output_path)
+                ]
+                
+                if target_duration:
+                    # Trim to exact target duration
+                    cmd_concat.extend(["-t", str(target_duration)])
+                
+                result = subprocess.run(cmd_concat, capture_output=True, text=True, timeout=60, check=False)  # Reduced timeout
+                
+                if result.returncode == 0:
+                    logger.info(f"Successfully created video with {segment_duration}s segments: {output_path}")
+                    return output_path
+                else:
+                    logger.warning(f"Concat failed, trying re-encoding method: {result.stderr}")
+                    
+                    # Fallback: re-encode during concat with hardware acceleration
+                    cmd_reencode = [
+                        "ffmpeg", "-y",
+                        "-hwaccel", "auto",
+                        "-f", "concat",
+                        "-safe", "0", 
+                        "-i", concat_file,
+                        "-c:v", "libx264",
+                        "-c:a", "aac",
+                        "-preset", "ultrafast",  # Faster preset
+                        "-crf", "28",  # Faster encoding
+                        "-avoid_negative_ts", "make_zero",
+                        str(output_path)
+                    ]
+                    
+                    if target_duration:
+                        cmd_reencode.extend(["-t", str(target_duration)])
+                    
+                    result2 = subprocess.run(cmd_reencode, capture_output=True, text=True, timeout=120, check=False)  # Reduced timeout
+                    
+                    if result2.returncode == 0:
+                        logger.info(f"Successfully created video with re-encoding: {output_path}")
+                        return output_path
+                    else:
+                        logger.error(f"Re-encoding also failed: {result2.stderr}")
+                        raise Exception(f"ffmpeg concat failed: {result2.stderr}")
+                        
+            finally:
+                # Clean up temp files and directory
+                try:
+                    Path(concat_file).unlink()
+                except:
+                    pass
+                    
+                for segment_file in segment_files:
+                    try:
+                        segment_file.unlink()
+                    except:
+                        pass
+                        
+                try:
+                    temp_dir.rmdir()
+                except:
+                    pass
+                    
+        except Exception as e:
+            logger.exception(f"Error stitching video samples: {e}")
+            # Fallback: just use the first 5 seconds of the first sample
+            if sample_files:
+                logger.info("Falling back to using first 5 seconds of first sample only")
+                try:
+                    import subprocess
+                    cmd_fallback = [
+                        "ffmpeg", "-y",
+                        "-i", str(sample_files[0]),
+                        "-t", "5.0",  # Just 5 seconds
+                        "-c:v", "libx264",
+                        "-c:a", "aac",
+                        str(output_path)
+                    ]
+                    subprocess.run(cmd_fallback, capture_output=True, text=True, timeout=60, check=True)
+                    return output_path
+                except:
+                    # Last resort: copy the whole first file
+                    import shutil
+                    shutil.copy2(sample_files[0], output_path)
+                    return output_path
+            else:
+                raise e
+    
+    async def _direct_loop_video(self, sample_file: Path, output_path: Path, segment_duration: float, target_duration: float) -> Path:
+        """Directly loop a single video file for maximum speed - avoids creating intermediate segments."""
+        try:
+            import subprocess
+            
+            logger.info(f"Using direct loop method for {sample_file} -> {output_path}")
+            
+            # Calculate how many loops we need
+            loops_needed = max(1, int(target_duration / segment_duration) + 1)
+            logger.info(f"Looping {segment_duration}s segment {loops_needed} times to fill {target_duration:.2f}s")
+            
+            # Single FFmpeg command that does everything at once
+            cmd = [
+                "ffmpeg", "-y",
+                "-hwaccel", "auto",
+                "-stream_loop", str(loops_needed - 1),  # Loop the input
+                "-i", str(sample_file),
+                "-t", str(target_duration),  # Trim to exact duration
+                "-ss", "0",  # Start from beginning
+                "-c:v", "libx264",
+                "-c:a", "aac", 
+                "-preset", "ultrafast",
+                "-crf", "28",
+                "-avoid_negative_ts", "make_zero",
+                str(output_path)
+            ]
+            
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=60, check=False)
+            
+            if result.returncode == 0:
+                logger.info(f"Direct loop method successful: {output_path}")
+                return output_path
+            else:
+                logger.warning(f"Direct loop failed: {result.stderr}")
+                # Fall back to segment method
+                raise Exception("Direct loop failed, falling back to segment method")
+                
+        except Exception as e:
+            logger.warning(f"Direct loop method failed: {e}")
+            # This will cause the caller to fall back to the segment-based method
+            raise
 
     async def _mock_video_generation(self, request: VideoGenerationRequest, output_path: Path) -> VideoGenerationResult:
         """Mock video generation for testing and development."""
@@ -510,6 +814,24 @@ Requirements:
         logger.debug(f"Created fallback mock video content: {len(mock_content)} bytes")
         return mock_content
 
+    # Cache for duration information to avoid repeated FFprobe calls
+    _duration_cache = {}
+    
+    async def _get_duration(self, file_path: str) -> float | None:
+        """Get duration of media file with caching"""
+        if file_path in self._duration_cache:
+            return self._duration_cache[file_path]
+        
+        import subprocess
+        cmd = ["ffprobe", "-v", "quiet", "-show_entries", "format=duration", "-of", "csv=p=0", str(file_path)]
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=15, check=False)
+        
+        if result.returncode == 0:
+            duration = float(result.stdout.strip())
+            self._duration_cache[file_path] = duration
+            return duration
+        return None
+    
     async def _combine_video_audio(self, video_path: Path, output_path: Path, audio_path: str) -> Path:
         """Combine video with audio using ffmpeg, extending video to match audio duration."""
         try:
@@ -517,36 +839,24 @@ Requirements:
 
             logger.info(f"Combining video {video_path} with audio {audio_path}")
 
-            # Get audio duration first
-            audio_duration_cmd = ["ffprobe", "-v", "quiet", "-show_entries", "format=duration", "-of", "csv=p=0", str(audio_path)]
-            audio_result = subprocess.run(audio_duration_cmd, capture_output=True, text=True, timeout=30, check=False)
-
-            if audio_result.returncode != 0:
-                logger.warning(f"Could not get audio duration: {audio_result.stderr}")
-                audio_duration = None
-            else:
-                audio_duration = float(audio_result.stdout.strip())
+            # Get durations using cached method
+            audio_duration = await self._get_duration(str(audio_path))
+            video_duration = await self._get_duration(str(video_path))
+            
+            if audio_duration:
                 logger.info(f"Audio duration: {audio_duration:.2f}s")
-
-            # Get video duration
-            video_duration_cmd = ["ffprobe", "-v", "quiet", "-show_entries", "format=duration", "-of", "csv=p=0", str(video_path)]
-            video_result = subprocess.run(video_duration_cmd, capture_output=True, text=True, timeout=30, check=False)
-
-            if video_result.returncode != 0:
-                logger.warning(f"Could not get video duration: {video_result.stderr}")
-                video_duration = None
-            else:
-                video_duration = float(video_result.stdout.strip())
+            if video_duration:
                 logger.info(f"Video duration: {video_duration:.2f}s")
 
             # Always loop the video to match audio duration if audio is longer
             # This ensures the final video matches the full audio length
             if audio_duration and video_duration and audio_duration > video_duration:
                 loops_needed = int(audio_duration / video_duration) + 1
-                logger.info(f"Audio ({audio_duration:.2f}s) long than video ({video_duration:.2f}s), looping video {loops_needed} times to match full audio duration")
+                logger.info(f"Audio ({audio_duration:.2f}s) longer than video ({video_duration:.2f}s), looping video {loops_needed} times to match full audio duration")
 
                 cmd = [
                     "ffmpeg", "-y",
+                    "-hwaccel", "auto",      # Hardware acceleration
                     "-stream_loop", str(loops_needed - 1),  # Loop the input stream
                     "-i", str(video_path),   # Input video (will be looped)
                     "-i", str(audio_path),   # Input audio
@@ -554,6 +864,8 @@ Requirements:
                     "-map", "1:a:0",         # Map audio stream
                     "-t", str(audio_duration),  # Trim to exact audio duration
                     "-c:v", "libx264",       # Re-encode video to ensure smooth looping
+                    "-preset", "ultrafast",  # Faster encoding
+                    "-crf", "28",            # Faster quality setting
                     "-c:a", "copy",          # Copy audio as-is (no re-encoding needed)
                     "-avoid_negative_ts", "make_zero",  # Handle timestamp issues
                     str(output_path)
@@ -563,12 +875,15 @@ Requirements:
                 logger.info(f"Video ({video_duration:.2f}s) longer than audio ({audio_duration:.2f}s), trimming video to audio length")
                 cmd = [
                     "ffmpeg", "-y",
+                    "-hwaccel", "auto",      # Hardware acceleration
                     "-i", str(video_path),  # Input video
                     "-i", str(audio_path),  # Input audio
                     "-map", "0:v:0",        # Map video from first input
                     "-map", "1:a:0",        # Map audio from second input
                     "-t", str(audio_duration), # Trim to exact audio duration
                     "-c:v", "libx264",      # Re-encode video
+                    "-preset", "ultrafast",  # Faster encoding
+                    "-crf", "28",            # Faster quality
                     "-c:a", "copy",         # Copy audio as-is
                     str(output_path)
                 ]
@@ -577,6 +892,7 @@ Requirements:
                 logger.info("Video and audio durations match or unknown, using simple combination")
                 cmd = [
                     "ffmpeg", "-y",
+                    "-hwaccel", "auto",      # Hardware acceleration
                     "-i", str(video_path),  # Input video
                     "-i", str(audio_path),  # Input audio
                     "-c:v", "copy",         # Copy video without re-encoding
@@ -587,7 +903,7 @@ Requirements:
                     str(output_path)
                 ]
 
-            result = subprocess.run(cmd, capture_output=True, text=True, timeout=300, check=False)
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=120, check=False)  # Reduced timeout
 
             if result.returncode == 0:
                 logger.info(f"Successfully combined video and audio: {output_path}")

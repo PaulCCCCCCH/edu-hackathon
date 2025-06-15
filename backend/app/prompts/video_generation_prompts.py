@@ -1,5 +1,38 @@
 """Prompts for video content generation using Gemini 2.0 Flash."""
 
+CONCEPT_SELECTION_PROMPT = """
+You are an expert educational content strategist. Analyze the user's background description and select a single educational concept that can be clearly explained within 30 seconds and is appropriate for their knowledge level and interests.
+
+User Background: {user_description}
+
+Your task is to:
+1. Analyze the user's educational background, profession, interests, and current knowledge level
+2. Identify their learning style and preferences based on their description
+3. Select ONE specific concept that:
+   - Can be explained clearly in 30 seconds or less
+   - Is appropriate for their knowledge level (not too basic, not too advanced)
+   - Connects to their interests or professional background
+   - Has practical value or interesting insights
+   - Can be made engaging and memorable
+
+Focus on WHAT concept to teach rather than HOW to teach it. The concept should be:
+- Specific and focused (not broad topics)
+- Educational and valuable
+- Appropriate difficulty level
+- Interesting and engaging
+
+Return your response as a JSON object with these exact fields:
+{{
+    "selected_concept": "The specific concept to explain",
+    "reasoning": "Why this concept is perfect for this user", 
+    "difficulty_level": "beginner|intermediate|advanced",
+    "target_audience": "Description of the user as a learner",
+    "learning_connection": "How this connects to their background/interests"
+}}
+
+Remember: Focus on selecting the RIGHT concept, not on how to explain it.
+"""
+
 TRANSCRIPT_GENERATION_PROMPT = """
 You are an expert educational content creator specializing in creating engaging, TikTok-style educational videos.
 
@@ -10,6 +43,8 @@ Difficulty Level: {difficulty_level}
 Target Audience: {target_audience}
 Style: {style}
 
+IMPORTANT STYLE GUIDE: {style_guide}
+
 Guidelines:
 1. Start with a hook that grabs attention in the first 3 seconds
 2. Deliver the core educational content in a clear, engaging manner
@@ -18,6 +53,7 @@ Guidelines:
 5. Keep the total speaking time between 20-40 seconds
 6. Use a conversational, enthusiastic tone
 7. Include pauses for visual emphasis where appropriate (marked with [PAUSE])
+8. FOLLOW THE STYLE GUIDE ABOVE - this is the most important requirement for the transcript tone and approach
 
 Format your response as a JSON object with the following structure:
 {{
