@@ -5,6 +5,7 @@ from fastapi import APIRouter
 from .schemas import UserBackground
 from .utils import state
 
+
 router = APIRouter()
 
 @router.post("/background")

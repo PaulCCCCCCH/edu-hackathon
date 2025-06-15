@@ -1,8 +1,8 @@
 """Simple in-memory state shared across routers."""
 
 from typing import Optional, List
-
 from ..schemas import UserBackground, VideoResponse
+
 
 # This will reset whenever the server restarts
 user_background: Optional[UserBackground] = None

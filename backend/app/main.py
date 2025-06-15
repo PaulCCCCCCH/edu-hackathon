@@ -12,11 +12,6 @@ from .background import router as background_router
 from .video import router as video_router
 
 
-
-
-
-
-
 app = FastAPI(title="EduTok Demo API")
 
 # Allow the React dev server (default :3000) & any other origins during demo

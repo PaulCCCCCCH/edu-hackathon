@@ -2,6 +2,7 @@
 
 from ..schemas import UserBackground
 
+
 def generate_transcript(background: UserBackground, topic: str) -> str:
     """Create a short transcript customised to the user's background."""
     return (
