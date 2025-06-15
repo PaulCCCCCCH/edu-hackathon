@@ -75,3 +75,6 @@ backend/static/
 # ----------------------------
 .env.local
 *.env
+
+# Local data
+/storage
